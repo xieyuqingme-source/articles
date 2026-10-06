@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import re
 import shutil
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from markdown_it import MarkdownIt
@@ -38,6 +38,68 @@ class Article:
 def plain_inline(token) -> str:
     return "".join(child.content for child in (token.children or [])
                    if child.type in {"text", "code_inline", "image", "softbreak"})
+
+
+class WechatContent(HTMLParser):
+    """Give the copyable body its own inline styles, independent of the blog theme."""
+
+    BASE = "background-color:#ffffff;color:inherit;font-size:inherit;line-height:inherit;letter-spacing:inherit;"
+    STYLES = {
+        "p": "margin:0 0 20px;padding:0;font-size:16px;line-height:2;text-align:left;",
+        "h1": "margin:28px 0 16px;font-size:22px;line-height:1.5;font-weight:700;",
+        "h2": "margin:28px 0 16px;font-size:20px;line-height:1.5;font-weight:700;",
+        "h3": "margin:24px 0 12px;font-size:18px;line-height:1.5;font-weight:700;",
+        "h4": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
+        "h5": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
+        "h6": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
+        "strong": "font-weight:700;",
+        "em": "font-style:italic;",
+        "s": "text-decoration:line-through;",
+        "a": "color:#316c65;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word;",
+        "img": "display:block;max-width:100%;height:auto;margin:16px auto;border:0;border-radius:0;",
+        "ul": "margin:0 0 20px;padding:0 0 0 24px;list-style:disc;",
+        "ol": "margin:0 0 20px;padding:0 0 0 24px;list-style:decimal;",
+        "li": "margin:6px 0;padding:0;",
+        "blockquote": "margin:20px 0;padding:0 0 0 14px;border-left:3px solid #316c65;",
+        "table": "display:table;width:100%;max-width:100%;margin:20px 0;border-collapse:collapse;table-layout:fixed;font-size:14px;line-height:1.7;letter-spacing:0;",
+        "th": "padding:8px;border:1px solid #dddddd;text-align:left;vertical-align:top;font-weight:700;word-break:break-word;overflow-wrap:anywhere;",
+        "td": "padding:8px;border:1px solid #dddddd;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;",
+        "hr": "margin:28px 0;border:0;border-top:1px solid #dddddd;",
+        "pre": "margin:20px 0;padding:12px;border:1px solid #dddddd;white-space:pre-wrap;word-break:break-word;",
+        "code": 'padding:0;font-family:Consolas,"Liberation Mono",monospace;white-space:pre-wrap;',
+    }
+
+    def __init__(self, page_url: str):
+        super().__init__(convert_charrefs=False)
+        self.page_url = page_url
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        # No blog classes, heading IDs or lazy loading in the clipboard payload.
+        values = {key: value for key, value in attrs
+                  if key not in {"id", "class", "style", "loading", "decoding"}}
+        for key in ("src", "href"):
+            if values.get(key):
+                values[key] = urljoin(self.page_url, values[key])
+        values["style"] = self.BASE + self.STYLES.get(tag, "")
+        attributes = "".join(f' {key}="{escape(value, quote=True)}"' if value is not None else f" {key}"
+                             for key, value in values.items())
+        self.parts.append(f"<{tag}{attributes}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        self.parts.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+    def handle_entityref(self, name):
+        self.parts.append(f"&{name};")
+
+    def handle_charref(self, name):
+        self.parts.append(f"&#{name};")
 
 
 class Blog:
@@ -128,6 +190,14 @@ class Blog:
             visit(token)
         return self.parser.renderer.render(tokens, self.parser.options, {})
 
+    def wechat_content(self, article: Article) -> str:
+        content = WechatContent(self.canonical(article.destination))
+        content.feed(self.render(article.markdown, article.source))
+        style = ('background-color:#ffffff;color:#333333;font-family:-apple-system,BlinkMacSystemFont,'
+                 '"Segoe UI","Microsoft YaHei",sans-serif;font-size:16px;line-height:2;letter-spacing:1px;'
+                 'margin:0;padding:0;max-width:100%;text-align:left;overflow-wrap:anywhere;')
+        return f'<section lang="{article.language}" style="{escape(style, quote=True)}">' + "".join(content.parts) + '</section>'
+
     def document(self, title: str, body: str, destination: str, language="zh-CN", active="", description="") -> str:
         description = description or self.config["description"]
         nav = []
@@ -203,6 +273,7 @@ class Blog:
         (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
         (OUTPUT / "assets").mkdir()
         shutil.copy2(ROOT / "blog/style.css", OUTPUT / "assets/style.css")
+        shutil.copy2(ROOT / "blog/wechat-copy.js", OUTPUT / "assets/wechat-copy.js")
         for folder in ASSETS:
             for source in sorted((ROOT / folder).rglob("*")):
                 relative = source.relative_to(ROOT)
@@ -230,7 +301,14 @@ class Blog:
 <a class="back-link" href="{escape(self.href(article.listing))}">← {article.category}</a>
 <p class="article-meta"><time datetime="{article.published}">{article.published}</time> · {escape(self.config['author'])}</p>
 <h1>{escape(article.title)}</h1></header>
-<div class="article-body">{self.render(article.markdown, article.source)}</div></article>'''
+<aside class="wechat-tools" aria-label="公众号排版">
+<button type="button" id="wechat-copy">复制到公众号</button>
+<p id="wechat-copy-status" role="status" aria-live="polite">复制正文和图片；标题在公众号单独填写。</p>
+<details class="wechat-preview"><summary>公众号排版预览</summary>
+<div id="wechat-copy-content">{self.wechat_content(article)}</div></details>
+</aside>
+<div class="article-body">{self.render(article.markdown, article.source)}</div></article>
+<script src="{escape(self.href('assets/wechat-copy.js'))}" defer></script>'''
             self.write(article.destination, self.document(article.title, body, article.destination, article.language, article.listing, self.excerpt(article)))
         sitemap = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         for destination in ["index.html", "chinese.html", "english.html", "about.html", *[a.destination for a in self.articles]]:
@@ -258,7 +336,10 @@ class Blog:
             images += parser.images
             for url in parser.urls:
                 parsed = urlsplit(url)
-                if parsed.scheme or parsed.netloc or not parsed.path:
+                own_site = urlsplit(self.site_url)
+                if (parsed.scheme or parsed.netloc) and (parsed.scheme, parsed.netloc) != (own_site.scheme, own_site.netloc):
+                    continue
+                if not parsed.path:
                     continue
                 if not parsed.path.startswith(self.base_path):
                     raise ValueError(f"Link misses site base path: {url}")
