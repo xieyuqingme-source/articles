@@ -15,6 +15,7 @@ from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from markdown_it import MarkdownIt
+from mdit_py_plugins.footnote import footnote_plugin
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "_site"
@@ -38,6 +39,17 @@ class Article:
 def plain_inline(token) -> str:
     return "".join(child.content for child in (token.children or [])
                    if child.type in {"text", "code_inline", "image", "softbreak"})
+
+
+def safe_line_break(state, silent: bool) -> bool:
+    """Allow Markdown table line breaks without enabling arbitrary raw HTML."""
+    match = re.match(r"<br\s*/?>", state.src[state.pos:state.posMax], re.IGNORECASE)
+    if match is None:
+        return False
+    if not silent:
+        state.push("html_inline", "", 0).content = "<br>"
+    state.pos += len(match.group(0))
+    return True
 
 
 class WechatContent(HTMLParser):
@@ -111,6 +123,8 @@ class Blog:
             raise ValueError("The site URL must be a full http(s) URL without query or fragment.")
         self.base_path = parsed.path.rstrip("/") + "/"
         self.parser = MarkdownIt("commonmark", {"html": False}).enable(["table", "strikethrough"])
+        self.parser.use(footnote_plugin)
+        self.parser.inline.ruler.before("html_inline", "safe_line_break", safe_line_break)
         self.articles: list[Article] = []
         self.pages = {(ROOT / "README.md").resolve(): "about.html"}
 

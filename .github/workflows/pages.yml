@@ -27,6 +27,8 @@ jobs:
           python-version: '3.12'
       - name: Install Markdown parser
         run: python -m pip install -r blog/requirements.txt
+      - name: Check Markdown compatibility
+        run: python scripts/test_build_blog.py
       - name: Build and check blog
         env:
           BLOG_SITE_URL: ${{ steps.pages.outputs.base_url }}
