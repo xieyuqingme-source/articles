@@ -287,10 +287,11 @@ class Blog:
     def document(self, title: str, body: str, destination: str, language="zh-CN", active="", description="") -> str:
         description = description or self.config["description"]
         nav = []
-        for label, target in [("首页", "index.html"), ("中文文章", "chinese.html"),
+        for label, target in [("个人主页", "/"), ("文章首页", "index.html"), ("中文文章", "chinese.html"),
                               ("English", "english.html"), ("关于我", "about.html")]:
             current = ' aria-current="page"' if target == active else ""
-            nav.append(f'<a href="{escape(self.href(target))}"{current}>{label}</a>')
+            address = target if target == "/" else self.href(target)
+            nav.append(f'<a href="{escape(address)}"{current}>{label}</a>')
         return f'''<!doctype html>
 <html lang="{language}" data-theme="dark">
 <head>
@@ -534,7 +535,7 @@ class Blog:
                         self.urls.append(value)
                 self.images += tag == "img"
 
-        checked = images = 0
+        checked = images = home_links = 0
         for source in OUTPUT.rglob("*.html"):
             parser = Links()
             parser.feed(source.read_text(encoding="utf-8"))
@@ -546,13 +547,17 @@ class Blog:
                     continue
                 if not parsed.path:
                     continue
+                # The personal home is a separate Pages site at the same origin.
+                if parsed.path == "/":
+                    home_links += 1
+                    continue
                 if not parsed.path.startswith(self.base_path):
                     raise ValueError(f"Link misses site base path: {url}")
                 target = (OUTPUT / unquote(parsed.path[len(self.base_path):])).resolve()
                 if not target.is_relative_to(OUTPUT) or not target.is_file():
                     raise ValueError(f"Broken generated link in {source.relative_to(OUTPUT)}: {url}")
                 checked += 1
-        print(f"Built {len(self.articles)} articles; checked {checked} local links and {images} image references.")
+        print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {home_links} personal-home links and {images} image references.")
 
 
 if __name__ == "__main__":
