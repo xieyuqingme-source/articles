@@ -19,3 +19,7 @@
 总而言之，大走理论优点很多，值得践行。希望这个概念能够发扬光大。
 
 ![我的微信运动步数记录](../images/20261011-great-walk-step-record.jpg)
+
+![[Pasted image 20261011174124.png]]
+
+![[Pasted image 20261011175201.png]]
