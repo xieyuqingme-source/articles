@@ -20,6 +20,6 @@
 
 ![我的微信运动步数记录](../images/20261011-great-walk-step-record.jpg)
 
-![[Pasted image 20261011174124.png]]
+![大走理论：每天散步，走一万步](../images/20261011-great-walk-card.png)
 
-![[Pasted image 20261011175201.png]]
+![大走理论封面：每天走1万步](../images/20261011-great-walk-cover-annotated.png)
