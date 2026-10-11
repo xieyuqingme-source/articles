@@ -44,9 +44,20 @@
     const previous = pagination.querySelector('[data-page="prev"]');
     const next = pagination.querySelector('[data-page="next"]');
     const position = pagination.querySelector(".pagination-position");
+    const jumpForm = pagination.querySelector(".page-jump");
+    const jumpInput = pagination.querySelector("#article-page");
+    const jumpButton = jumpForm.querySelector('button[type="submit"]');
+    const jumpMessage = pagination.querySelector("#page-jump-message");
     const pageSize = 12;
     let topic = "all";
     let page = 1;
+    let totalPages = 0;
+
+    function clearJumpMessage() {
+      jumpMessage.hidden = true;
+      jumpMessage.textContent = "";
+      jumpInput.removeAttribute("aria-invalid");
+    }
 
     function restoreState() {
       const params = new URLSearchParams(window.location.search);
@@ -64,7 +75,8 @@
       const matched = entries.filter((entry) => (topic === "all" || entry.topic === topic) &&
         (year.value === "all" || entry.year === year.value) && terms.every((term) => entry.text.includes(term)));
       const count = matched.length;
-      const pages = Math.max(1, Math.ceil(count / pageSize));
+      totalPages = Math.ceil(count / pageSize);
+      const pages = Math.max(1, totalPages);
       page = Math.min(page, pages);
       const start = (page - 1) * pageSize;
       const visible = new Set(matched.slice(start, start + pageSize));
@@ -81,6 +93,9 @@
       position.textContent = `${page} / ${pages} 页`;
       previous.disabled = page === 1;
       next.disabled = page === pages;
+      jumpInput.value = count ? String(page) : "";
+      jumpInput.disabled = jumpButton.disabled = count === 0;
+      clearJumpMessage();
       if (persist) {
         const url = new URL(window.location.href);
         ["q", "topic", "year", "page"].forEach((name) => url.searchParams.delete(name));
@@ -115,6 +130,26 @@
     });
     previous.addEventListener("click", () => { page -= 1; update(false, true); });
     next.addEventListener("click", () => { page += 1; update(false, true); });
+    function jumpToPage(event) {
+      event.preventDefault();
+      if (!totalPages) return;
+      const value = jumpInput.value.trim();
+      const requested = Number(value);
+      if (!/^\d+$/.test(value) || !Number.isSafeInteger(requested) || requested < 1 || requested > totalPages) {
+        jumpMessage.textContent = `请输入 1–${totalPages} 的整数页码。`;
+        jumpMessage.hidden = false;
+        jumpInput.setAttribute("aria-invalid", "true");
+        jumpInput.focus();
+        return;
+      }
+      page = requested;
+      update(false, true);
+    }
+    jumpForm.addEventListener("submit", jumpToPage);
+    jumpInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.isComposing) jumpToPage(event);
+    });
+    jumpInput.addEventListener("input", clearJumpMessage);
     window.addEventListener("popstate", () => { restoreState(); update(false, false, false); });
     restoreState();
     update();

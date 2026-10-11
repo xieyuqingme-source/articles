@@ -25,9 +25,28 @@ from markdown_it import MarkdownIt
 from mdit_py_plugins.footnote import footnote_plugin
 
 OUTPUT = ROOT / "_site"
+INTERACTION_DIR = ROOT / "blog"
 FOLDERS = {"中文文章": ("zh-CN", "中文文章", "chinese.html"),
            "English Articles": ("en", "English Articles", "english.html")}
 ASSETS = ("images", "附属资料")
+
+
+def read_waline_config(path: Path) -> dict:
+    config = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    if config.get("enabled") is not True:
+        return {"enabled": False}
+    address = config.get("serverURL", "").strip()
+    parsed = urlsplit(address)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.query or parsed.fragment or parsed.hostname in {"example.com", "localhost", "127.0.0.1"}
+            or parsed.hostname.endswith((".example", ".invalid"))):
+        raise ValueError("Waline needs the real HTTPS backend URL, without credentials, query or fragment.")
+    if config.get("backendVerified") is not True or not all(
+            isinstance(config.get(name), str) and config[name].strip()
+            for name in ("hostingProvider", "databaseProvider")):
+        raise ValueError("Verify backend moderation/privacy settings and confirm providers before enabling Waline.")
+    return {"enabled": True, "backendVerified": True, "serverURL": address.rstrip("/"),
+            "hostingProvider": config["hostingProvider"].strip(), "databaseProvider": config["databaseProvider"].strip()}
 
 
 @dataclass
@@ -123,6 +142,7 @@ class WechatContent(HTMLParser):
 class Blog:
     def __init__(self, site_url: str):
         self.config = json.loads((ROOT / "blog/config.json").read_text(encoding="utf-8"))
+        self.waline = read_waline_config(INTERACTION_DIR / "waline.json")
         self.site_url = site_url.rstrip("/")
         parsed = urlsplit(self.site_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
@@ -309,6 +329,7 @@ class Blog:
   <link rel="stylesheet" href="{escape(self.href('assets/style.css'))}">
   <link rel="alternate" type="application/rss+xml" title="{escape(self.config['title'])}" href="{escape(self.href('feed.xml'))}">
   <script src="{escape(self.href('assets/site.js'))}" defer></script>
+  {self.waline_head(destination)}
 </head>
 <body id="top">
   <a class="skip-link" href="#main">跳转到正文 / Skip to content</a>
@@ -326,6 +347,41 @@ class Blog:
 </body>
 </html>
 '''
+
+    def waline_head(self, destination: str) -> str:
+        if not self.waline["enabled"] or destination == "about.html":
+            return ""
+        settings = {**self.waline, "siteOrigin": urlunsplit((*urlsplit(self.site_url)[:2], "", "", "")),
+                    "clientJS": self.href("assets/waline/waline.js"),
+                    "clientCSS": self.href("assets/waline/waline.css")}
+        encoded = json.dumps(settings, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        return (f'<link rel="stylesheet" href="{escape(self.href("assets/waline-integration.css"))}">'
+                f'<script type="application/json" id="waline-settings">{encoded}</script>'
+                f'<script type="module" src="{escape(self.href("assets/waline-integration.js"))}"></script>')
+
+    def metrics(self, article: Article) -> str:
+        if not self.waline["enabled"]:
+            return ""
+        return (f'<span class="article-stat" data-stats-path="{escape(self.href(article.destination))}" hidden>'
+                '<span data-counter="views" hidden>浏览 <b></b></span>'
+                '<span data-counter="comments" hidden>评论 <b></b></span></span>')
+
+    def provider_notice(self) -> str:
+        return f'服务托管：{escape(self.waline["hostingProvider"])}；数据库：{escape(self.waline["databaseProvider"])}。'
+
+    def statistics_notice(self) -> str:
+        if not self.waline["enabled"]:
+            return ""
+        return ('<p class="statistics-notice">浏览与评论统计请求会向所选Waline后端及其托管商发送IP和浏览器信息。'
+                + self.provider_notice() + '</p>')
+
+    def comments(self, article: Article) -> str:
+        if not self.waline["enabled"]:
+            return ""
+        return (f'<section class="article-comments" id="article-comments" data-article-path="{escape(self.href(article.destination))}" aria-labelledby="comments-heading" hidden>'
+                '<h2 id="comments-heading">留言</h2><p class="comment-policy">无需注册；昵称必填，邮箱选填。评论审核通过后显示。</p>'
+                '<p class="comment-privacy">评论和昵称会公开；邮箱不公开且不用于通知。评论、昵称、可选邮箱及请求中的IP和浏览器信息会由所选Waline后端及其托管商处理；不公开地区和浏览器标签。'
+                + self.provider_notice() + '</p><div id="waline"></div></section>')
 
     def excerpt(self, article: Article) -> str:
         tokens = self.parser.parse(article.markdown)
@@ -368,7 +424,7 @@ class Blog:
             cards.append(f'''<li class="article-card">
 <span class="article-number" aria-hidden="true">{index:02d}</span>
 <div class="article-card-content" data-topic="{escape(topic)}" data-year="{article.published[:4]}" data-search="{searchable}">
-<p class="article-meta"><span class="topic-tag">{escape(topic)}</span>{self.publication(article)}<span>{article.category}</span></p>
+<p class="article-meta"><span class="topic-tag">{escape(topic)}</span>{self.publication(article)}<span>{article.category}</span>{self.metrics(article)}</p>
 <h2 class="article-title"><a href="{escape(self.href(article.destination))}" lang="{article.language}">{escape(article.title)}</a></h2>
 <p class="article-excerpt" lang="{article.language}">{escape(excerpt)}</p>
 <p class="article-read"><span>约 {self.reading_minutes(article)} 分钟阅读</span><a href="{escape(self.href(article.destination))}" aria-label="阅读：{escape(article.title)}">阅读全文 <span aria-hidden="true">↗</span></a></p>
@@ -377,6 +433,8 @@ class Blog:
         return '<ul class="article-list">' + "\n".join(cards) + '</ul>' if cards else '<p class="empty-state">文章即将更新。</p>'
 
     def archive(self, articles: list[Article], title="文章归档", subtitle="从一篇文章开始，慢慢读。") -> str:
+        notice = ('<p class="statistics-notice">浏览与评论统计请求会向所选Waline后端及其托管商发送IP和浏览器信息。'
+                  + self.provider_notice() + '</p>') if self.waline["enabled"] else ""
         topics = sorted({self.topic(article) for article in articles})
         filters = ['<button type="button" class="filter-button active" data-filter="all" aria-pressed="true">全部<span>' + str(len(articles)) + '</span></button>']
         for topic in topics:
@@ -393,9 +451,13 @@ class Blog:
 <div class="archive-query"><label class="year-filter"><span class="sr-only">按发表年份筛选</span><select id="article-year" aria-label="按发表年份筛选"><option value="all">全部年份</option>{year_options}</select></label>
 <label class="search-box"><span class="search-icon" aria-hidden="true"></span><span class="sr-only">搜索文章标题或摘要</span><input type="search" id="article-search" placeholder="搜索标题或摘要…" autocomplete="off" aria-controls="archive-results"><span class="search-key" aria-hidden="true">/</span></label>
 </div></div>
-<p class="search-status" id="archive-results" role="status" aria-live="polite" hidden></p>
+{notice}<p class="search-status" id="archive-results" role="status" aria-live="polite" hidden></p>
 {self.listing(articles)}
-<nav class="archive-pagination" aria-label="文章分页" hidden><button type="button" data-page="prev">← 上一页</button><span class="pagination-position"></span><button type="button" data-page="next">下一页 →</button></nav>
+<nav class="archive-pagination" aria-label="文章分页" hidden>
+<button type="button" data-page="prev">← 上一页</button><span class="pagination-position"></span><button type="button" data-page="next">下一页 →</button>
+<form class="page-jump" novalidate><label for="article-page">跳至</label><input id="article-page" name="page" type="text" inputmode="numeric" autocomplete="off" aria-label="跳转页码" aria-describedby="page-jump-message"><span>页</span><button type="submit">跳转</button></form>
+<p id="page-jump-message" class="page-jump-message" role="status" aria-live="polite" hidden></p>
+</nav>
 <div class="search-empty" hidden><p>没有找到符合条件的文章。</p><button type="button" class="reset-search">清除搜索与筛选</button></div>
 </section>'''
 
@@ -460,6 +522,10 @@ class Blog:
         shutil.copy2(ROOT / "blog/style.css", OUTPUT / "assets/style.css")
         shutil.copy2(ROOT / "blog/wechat-copy.js", OUTPUT / "assets/wechat-copy.js")
         shutil.copy2(ROOT / "blog/site.js", OUTPUT / "assets/site.js")
+        if self.waline["enabled"]:
+            for name in ("waline-integration.js", "waline-integration.css", "comment-avatar.svg"):
+                shutil.copy2(INTERACTION_DIR / name, OUTPUT / "assets" / name)
+            shutil.copytree(INTERACTION_DIR / "vendor/waline", OUTPUT / "assets/waline")
         for folder in ASSETS:
             for source in sorted((ROOT / folder).rglob("*")):
                 relative = source.relative_to(ROOT)
@@ -501,9 +567,11 @@ class Blog:
             body = f'''<div class="reading-progress" aria-hidden="true"><span></span></div><article class="reading-page"><header class="article-header">
 <a class="back-link" href="{escape(self.href(article.listing))}">← {article.category}</a>
 <p class="eyebrow">{escape(self.topic(article))}</p><h1>{escape(article.title)}</h1>
-<p class="article-meta">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span></p></header>
+<p class="article-meta">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span>{self.metrics(article)}</p></header>
+{self.statistics_notice()}
 <div class="reading-layout"><div class="reading-content">
 <div class="article-body" id="article-content">{rendered}</div>
+{self.comments(article)}
 <aside class="wechat-tools" aria-label="公众号排版">
 <div class="wechat-action">
 <button type="button" id="wechat-copy">复制到公众号</button>

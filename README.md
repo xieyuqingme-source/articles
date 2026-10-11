@@ -2,6 +2,8 @@
 
 我目前在马来西亚攻读工商管理硕士（MBA）。这里收录我的中文原创文章和英文写作练习，记录对生活、学习与社会的观察和思考。
 
+我的微信公众号是“谢雨聊”。
+
 I’m Xie Yuqing (Carl), an MBA student in Malaysia. Here I share my original Chinese essays and English writing practice, exploring everyday life, learning, and society.
 
 ## 文章索引 · Article Index

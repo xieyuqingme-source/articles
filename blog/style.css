@@ -119,11 +119,15 @@ h1, h2 { font-family: var(--serif); }
 .year-filter { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--white); }
 .year-filter select { max-width: 125px; padding: 10px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: .75rem; }
 .year-filter option { color: var(--ink); background: var(--white); }
-.archive-pagination { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 28px; }
+.archive-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 18px; margin-top: 28px; }
 .archive-pagination button { border: 1px solid var(--line); border-radius: 4px; padding: 9px 13px; color: var(--accent); background: var(--surface); font-size: .78rem; }
 .archive-pagination button:hover:not(:disabled) { border-color: var(--accent); }
 .archive-pagination button:disabled { color: var(--muted); opacity: .45; cursor: default; }
 .pagination-position { color: var(--muted); font: .75rem var(--mono); }
+.page-jump { display: flex; align-items: center; gap: 8px; max-width: 100%; color: var(--muted); font-size: .78rem; }
+.page-jump input { width: 3.5rem; min-width: 0; border: 1px solid var(--line); border-radius: 4px; padding: 7px; color: var(--ink); background: var(--white); font: inherit; font-size: 16px; text-align: center; }
+.page-jump input[aria-invalid="true"] { border-color: var(--accent); }
+.page-jump-message { flex-basis: 100%; margin: 0; color: var(--accent); text-align: center; font-size: .78rem; }
 .topic-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .filter-button { display: flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid transparent; border-radius: 3px; color: var(--muted); background: transparent; font-size: .76rem; line-height: 1.6; }
 .filter-button span { font-size: .62rem; opacity: .75; }
@@ -310,6 +314,8 @@ h1, h2 { font-family: var(--serif); }
   .about-body { padding: 24px; }
 }
 @media (max-width: 480px) {
+  .archive-pagination { gap: 12px; }
+  .page-jump { flex-basis: 100%; justify-content: center; }
   .container { width: calc(100% - 36px); }
   .site-header { flex-wrap: wrap; gap: 17px; padding-top: 20px; padding-bottom: 17px; }
   .header-actions { display: contents; }

@@ -4,6 +4,8 @@ from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 import sys
+import json
+from unittest.mock import Mock
 import unittest
 from urllib.parse import unquote
 
@@ -13,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 if (ROOT / ".blog-deps").is_dir():
     sys.path.insert(0, str(ROOT / ".blog-deps"))
 
-from build_blog import Article, Blog  # noqa: E402
+from build_blog import Article, Blog, read_waline_config  # noqa: E402
 
 
 class Elements(HTMLParser):
@@ -153,6 +155,72 @@ class MarkdownRenderingTests(unittest.TestCase):
                             for tag, attrs in elements))
         self.assertEqual([attrs["data-year"] for _, attrs in elements if "data-year" in attrs],
                          ["2024", "2026", ""])
+
+    def test_page_jump_has_keyboard_form_and_accessible_feedback(self):
+        elements = Elements(self.blog.archive([])).elements
+        self.assertTrue(any(tag == "form" and attrs.get("class") == "page-jump"
+                            and "novalidate" in attrs for tag, attrs in elements))
+        self.assertTrue(any(tag == "label" and attrs.get("for") == "article-page"
+                            for tag, attrs in elements))
+        field = next(attrs for tag, attrs in elements
+                     if tag == "input" and attrs.get("id") == "article-page")
+        self.assertEqual(field["inputmode"], "numeric")
+        self.assertEqual(field["aria-describedby"], "page-jump-message")
+        self.assertTrue(any(tag == "button" and attrs.get("type") == "submit"
+                            for tag, attrs in elements))
+        self.assertTrue(any(attrs.get("id") == "page-jump-message"
+                            and attrs.get("role") == "status" for _, attrs in elements))
+
+    def test_waline_disabled_generates_no_widget_stats_or_client(self):
+        self.blog.waline = {"enabled": False}
+        article = Article(self.source, "中文文章/测试.html", "测试", "2026-01-01",
+                          "zh-CN", "中文文章", "chinese.html", "正文")
+        self.assertEqual(self.blog.metrics(article), "")
+        self.assertEqual(self.blog.comments(article), "")
+        self.assertEqual(self.blog.waline_head(article.destination), "")
+        self.assertNotIn("data-stats-path", self.blog.archive([article]))
+
+    def test_waline_requires_backend_verification_and_provider_names(self):
+        path = Mock()
+        path.is_file.return_value = True
+        for config in [{"enabled": True, "serverURL": ""},
+                           {"enabled": True, "serverURL": "https://example.com"},
+                           {"enabled": True, "serverURL": "https://comments.test", "backendVerified": False},
+                           {"enabled": True, "serverURL": "https://user:password@comments.test",
+                            "backendVerified": True, "hostingProvider": "Host", "databaseProvider": "DB"}]:
+            path.read_text.return_value = json.dumps(config)
+            with self.assertRaises(ValueError):
+                read_waline_config(path)
+        path.read_text.return_value = '{"enabled": false, "serverURL": ""}'
+        self.assertEqual(read_waline_config(path), {"enabled": False})
+        path.read_text.return_value = json.dumps({"enabled": True, "serverURL": "https://comments.test",
+                                                "backendVerified": True, "hostingProvider": "Host",
+                                                "databaseProvider": "DB", "unexpected_private_option": "secret"})
+        self.assertNotIn("unexpected_private_option", read_waline_config(path))
+
+    def test_waline_article_and_list_identifiers_match_and_start_hidden(self):
+        self.blog.waline = {"enabled": True, "serverURL": "https://comments.test",
+                            "backendVerified": True, "hostingProvider": "Host", "databaseProvider": "DB"}
+        article = Article(self.source, "中文文章/2026-01-01-中文 标题.html", "测试", "2026-01-01",
+                          "zh-CN", "中文文章", "chinese.html", "正文")
+        metric = Elements(self.blog.metrics(article)).elements
+        widget = Elements(self.blog.comments(article)).elements
+        metric_path = next(a["data-stats-path"] for _, a in metric if "data-stats-path" in a)
+        widget_path = next(a["data-article-path"] for _, a in widget if "data-article-path" in a)
+        self.assertEqual(metric_path, widget_path)
+        self.assertEqual(unquote(metric_path), "/articles/" + article.destination)
+        self.assertTrue(all("hidden" in a for _, a in metric if "data-counter" in a))
+        self.assertTrue(any(a.get("id") == "article-comments" and "hidden" in a for _, a in widget))
+        self.assertNotIn(">0<", self.blog.metrics(article))
+
+    def test_waline_public_settings_cannot_break_out_of_json_script(self):
+        self.blog.waline = {"enabled": True, "serverURL": "https://comments.test",
+                            "backendVerified": True, "hostingProvider": "</script><script>alert(1)</script>",
+                            "databaseProvider": "DB"}
+        html = self.blog.waline_head("index.html")
+        self.assertNotIn("<script>alert(1)", html)
+        self.assertIn('"siteOrigin": "https://example.com"', html)
+        self.assertEqual(self.blog.waline_head("about.html"), "")
 
 
 if __name__ == "__main__":

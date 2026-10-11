@@ -1,0 +1,8 @@
+.article-stat { display: inline-flex; flex-wrap: wrap; gap: 12px; color: var(--muted); }
+.article-stat b { font-weight: 500; }
+.statistics-notice, .comment-privacy, .comment-policy { color: var(--muted); font-size: .78rem; line-height: 1.8; overflow-wrap: anywhere; }
+.article-comments { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--line); }
+.article-comments h2 { margin: 0 0 12px; font-size: 1.3rem; }
+#waline { --waline-color: var(--ink); --waline-bg-color: var(--white); --waline-bg-color-light: var(--soft); --waline-bg-color-hover: var(--surface); --waline-border-color: var(--line); --waline-theme-color: var(--accent); --waline-active-color: var(--accent-hover); --waline-text-color: var(--ink); --waline-info-bg-color: var(--soft); --waline-info-color: var(--muted); --waline-font-size: 16px; --waline-border-radius: 4px; }
+@media (max-width: 480px) { .article-stat { gap: 8px; } #waline .wl-header { flex-direction: column; } #waline .wl-header label { width: 100%; } .article-comments { margin-top: 28px; } }
+@media print { .article-stat, .article-comments, .statistics-notice { display: none; } }
