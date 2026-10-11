@@ -1,4 +1,4 @@
-name: Publish blog
+name: Publish personal site
 
 on:
   push:
@@ -16,6 +16,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Require the renamed root repository
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "xieyuqingme-source/xieyuqingme-source.github.io" ]; then
+            echo "::error::Rename and update remotes before publishing this unified site."
+            exit 1
+          fi
       - name: Read repository
         uses: actions/checkout@v7
       - name: Configure Pages
@@ -29,14 +35,20 @@ jobs:
         run: python -m pip install -r blog/requirements.txt
       - name: Check Markdown compatibility
         run: python scripts/test_build_blog.py
-      - name: Build and check blog
+      - name: Check unified site rules
+        run: python scripts/test_build_site.py
+      - name: Check disabled Waline integration
+        run: node scripts/test_waline_logic.mjs
+      - name: Build and check personal site
         env:
           BLOG_SITE_URL: ${{ steps.pages.outputs.base_url }}
-        run: python scripts/build_blog.py --site-url "$BLOG_SITE_URL"
+        run: python scripts/build_site.py --site-url "$BLOG_SITE_URL"
+      - name: Check archive interactions
+        run: python scripts/test_archive_pages.py
       - name: Upload website
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: _site_unified
 
   deploy:
     needs: build

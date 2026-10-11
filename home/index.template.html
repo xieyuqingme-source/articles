@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>谢雨卿 · Carl</title>
+  <meta name="description" content="本科毕业于社科大，目前在马来西亚城市大学读MBA。课余时间喜欢读书，写文章，探索AI应用。在这个网站，我将展示自己的作品和文章。">
+  <meta name="author" content="Xie Yuqing (Carl)">
+  <link rel="canonical" href="{{site_url}}/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="谢雨卿 · Carl">
+  <meta property="og:description" content="本科毕业于社科大，目前在马来西亚城市大学读MBA。课余时间喜欢读书，写文章，探索AI应用。在这个网站，我将展示自己的作品和文章。">
+  <meta property="og:url" content="{{site_url}}/">
+  <script>try { if (localStorage.getItem("xieyuqing-blog-theme") === "light") document.documentElement.dataset.theme = "light"; } catch (_) {}</script>
+  <link rel="stylesheet" href="/assets/portal.css">
+  <script src="/assets/portal.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到正文</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="谢雨卿个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
+    <nav class="site-nav" aria-label="主导航"><a href="/" aria-current="page">个人主页</a><a href="/articles/">文章</a><a href="/articles/about.html">关于我</a></nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" hidden><span class="theme-label">浅色</span></button>
+  </header>
+  <main id="main" class="container">
+    <section class="intro" aria-labelledby="intro-title">
+      <div class="intro-copy">
+        <p class="eyebrow"><span aria-hidden="true"></span> PERSONAL HOME · 个人主页</p>
+        <h1 id="intro-title"><em>谢雨卿</em></h1>
+        <p class="intro-name" lang="en">Xie Yuqing · Carl</p>
+        <p class="intro-description">本科毕业于社科大，目前在马来西亚城市大学读MBA。<br>课余时间喜欢读书，写文章，探索AI应用。<br>在这个网站，我将展示自己的作品和文章。<br>公众号：“谢雨聊”。<br>邮箱：<a href="mailto:xieyuqing.me@gmail.com">xieyuqing.me@gmail.com</a></p>
+        <a class="quiet-link" href="/articles/about.html">多了解一点 <span aria-hidden="true">↗</span></a>
+      </div>
+      <aside class="writing-entry" aria-labelledby="writing-title">
+        <div class="entry-top"><p class="eyebrow">WRITING · 写作</p><span aria-hidden="true">↗</span></div>
+        <div><h2 id="writing-title">我的文章</h2><p>年寿有时而尽，荣乐止乎其身，二者必至于常期，未若文章之无穷。</p></div>
+        <p class="writing-count"><strong>{{article_total}}</strong><span>篇文章<br><small>{{chinese_total}} 中文 · {{english_total}} English</small></span></p>
+        <a class="primary-link" href="/articles/">进入文章栏目 <span aria-hidden="true">→</span></a>
+      </aside>
+    </section>
+    <section class="recent" aria-labelledby="recent-title">
+      <div class="section-heading"><div><p class="eyebrow">RECENT WRITING</p><h2 id="recent-title">最近写的</h2></div><a class="quiet-link" href="/articles/">全部文章 <span aria-hidden="true">↗</span></a></div>
+      <ol class="recent-list">
+{{recent_articles}}
+      </ol>
+    </section>
+  </main>
+  <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章</a><a href="/articles/about.html">关于我</a><a href="/articles/feed.xml">RSS</a></div></footer>
+</body>
+</html>

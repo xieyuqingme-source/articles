@@ -140,7 +140,8 @@ class WechatContent(HTMLParser):
 
 
 class Blog:
-    def __init__(self, site_url: str):
+    def __init__(self, site_url: str, output: Path | None = None):
+        self.output = Path(output) if output is not None else OUTPUT
         self.config = json.loads((ROOT / "blog/config.json").read_text(encoding="utf-8"))
         self.waline = read_waline_config(INTERACTION_DIR / "waline.json")
         self.site_url = site_url.rstrip("/")
@@ -432,7 +433,7 @@ class Blog:
 </li>''')
         return '<ul class="article-list">' + "\n".join(cards) + '</ul>' if cards else '<p class="empty-state">文章即将更新。</p>'
 
-    def archive(self, articles: list[Article], title="文章归档", subtitle="从一篇文章开始，慢慢读。") -> str:
+    def archive(self, articles: list[Article], title="文章", subtitle="从一篇文章开始，慢慢读。") -> str:
         notice = ('<p class="statistics-notice">浏览与评论统计请求会向所选Waline后端及其托管商发送IP和浏览器信息。'
                   + self.provider_notice() + '</p>') if self.waline["enabled"] else ""
         topics = sorted({self.topic(article) for article in articles})
@@ -445,7 +446,7 @@ class Blog:
         if any(not article.published for article in articles):
             year_options += '<option value="unknown">时间待确认</option>'
         return f'''<section class="archive" id="archive" aria-labelledby="archive-heading">
-<div class="section-heading"><div><p class="eyebrow">~/writing · 文章归档</p><h2 id="archive-heading">{escape(title)}</h2><p>{escape(subtitle)}</p></div><span class="archive-total">{len(articles):02d} <small>篇文章</small></span></div>
+<div class="section-heading"><div><p class="eyebrow">~/writing · 文章</p><h2 id="archive-heading">{escape(title)}</h2><p>{escape(subtitle)}</p></div><span class="archive-total">{len(articles):02d} <small>篇文章</small></span></div>
 <div class="archive-controls" hidden>
 <div class="topic-filters" role="group" aria-label="按主题筛选">{''.join(filters)}</div>
 <div class="archive-query"><label class="year-filter"><span class="sr-only">按发表年份筛选</span><select id="article-year" aria-label="按发表年份筛选"><option value="all">全部年份</option>{year_options}</select></label>
@@ -499,33 +500,34 @@ class Blog:
                 SubElement(item, key).text = value
             if len(article.published) == 10:
                 SubElement(item, "pubDate").text = format_datetime(datetime.fromisoformat(article.published).replace(tzinfo=timezone.utc))
-        (OUTPUT / "feed.xml").write_bytes(tostring(rss, encoding="utf-8", xml_declaration=True))
+        (self.output / "feed.xml").write_bytes(tostring(rss, encoding="utf-8", xml_declaration=True))
 
     def write(self, destination: str, html: str):
-        target = OUTPUT / destination
+        target = self.output / destination
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(html, encoding="utf-8")
 
-    def build(self):
+    def build(self, clean=True):
         self.collect()
         # Only remove this generator's own output, after checking its exact path.
-        if OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / "_site":
+        if self.output.is_symlink() or self.output.resolve() not in {ROOT.resolve() / "_site", ROOT.resolve() / "_site_unified" / "articles"}:
             raise ValueError("Unsafe generated output path.")
-        if OUTPUT.exists():
-            if not (OUTPUT / ".generated-by-blog").is_file():
+        if self.output.exists():
+            if not (self.output / ".generated-by-blog").is_file():
                 raise ValueError("_site already exists without this generator's marker; keep it intact.")
-            shutil.rmtree(OUTPUT)
-        OUTPUT.mkdir()
-        (OUTPUT / ".generated-by-blog").write_text("Generated website only.\n", encoding="utf-8")
-        (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
-        (OUTPUT / "assets").mkdir()
-        shutil.copy2(ROOT / "blog/style.css", OUTPUT / "assets/style.css")
-        shutil.copy2(ROOT / "blog/wechat-copy.js", OUTPUT / "assets/wechat-copy.js")
-        shutil.copy2(ROOT / "blog/site.js", OUTPUT / "assets/site.js")
+            if clean:
+                shutil.rmtree(self.output)
+        self.output.mkdir(parents=True, exist_ok=True)
+        (self.output / ".generated-by-blog").write_text("Generated website only.\n", encoding="utf-8")
+        (self.output / ".nojekyll").write_text("", encoding="utf-8")
+        (self.output / "assets").mkdir(exist_ok=True)
+        shutil.copy2(ROOT / "blog/style.css", self.output / "assets/style.css")
+        shutil.copy2(ROOT / "blog/wechat-copy.js", self.output / "assets/wechat-copy.js")
+        shutil.copy2(ROOT / "blog/site.js", self.output / "assets/site.js")
         if self.waline["enabled"]:
             for name in ("waline-integration.js", "waline-integration.css", "comment-avatar.svg"):
-                shutil.copy2(INTERACTION_DIR / name, OUTPUT / "assets" / name)
-            shutil.copytree(INTERACTION_DIR / "vendor/waline", OUTPUT / "assets/waline")
+                shutil.copy2(INTERACTION_DIR / name, self.output / "assets" / name)
+            shutil.copytree(INTERACTION_DIR / "vendor/waline", self.output / "assets/waline", dirs_exist_ok=True)
         for folder in ASSETS:
             for source in sorted((ROOT / folder).rglob("*")):
                 relative = source.relative_to(ROOT)
@@ -534,7 +536,7 @@ class Blog:
                 if source.is_symlink():
                     raise ValueError(f"Asset symlinks are not supported: {relative}")
                 if source.is_file():
-                    target = OUTPUT / relative
+                    target = self.output / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source, target)
         chinese = sum(article.language == "zh-CN" for article in self.articles)
@@ -543,9 +545,11 @@ class Blog:
         if self.articles:
             latest = self.articles[0]
             featured = f'''<aside class="featured-article"><div class="feature-top"><p class="eyebrow">LATEST ESSAY · 最新一篇</p><span aria-hidden="true">↗</span></div><div><p class="featured-meta">{escape(self.topic(latest))} <span> / </span>{self.publication(latest)}</p><h2><a href="{escape(self.href(latest.destination))}" lang="{latest.language}">{escape(latest.title)}</a></h2><p class="featured-excerpt" lang="{latest.language}">{escape(self.excerpt(latest))}</p></div><a class="featured-link" href="{escape(self.href(latest.destination))}">读这篇文章 <span aria-hidden="true">→</span></a></aside>'''
-        intro = f'''<section class="home-intro" aria-labelledby="home-heading"><div class="intro-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ~/essays · 个人写作</p><h1 id="home-heading">生活、学习<br>与<span>思考。</span></h1><p class="intro-description">{escape(self.config['description'])}</p><p class="intro-english" lang="en">{escape(self.config['english_description'])}</p><div class="intro-actions"><a class="primary-link" href="#archive">浏览文章 <span aria-hidden="true">↓</span></a><a class="quiet-link" href="{escape(self.href('about.html'))}">认识作者 ↗</a></div></div>{featured}</section>
+        chinese_heading, separator, english_heading = self.config['article_heading'].partition(' ')
+        article_heading = escape(chinese_heading) + (f' <span>{escape(english_heading)}</span>' if separator else '')
+        intro = f'''<section class="home-intro" aria-labelledby="home-heading"><div class="intro-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ~/essays · 个人写作</p><h1 id="home-heading">{article_heading}</h1><p class="intro-description">{escape(self.config['article_description'])}</p><p class="intro-english" lang="en">{escape(self.config['article_english_description'])}</p><div class="intro-actions"><a class="primary-link" href="#archive">浏览文章 <span aria-hidden="true">↓</span></a><a class="quiet-link" href="{escape(self.href('about.html'))}">认识作者 ↗</a></div></div>{featured}</section>
 <div class="archive-banner"><p>写作，是观察世界的另一种方式。</p><div><span><strong>{chinese:02d}</strong> 中文文章</span><span><strong>{english:02d}</strong> English</span><span><strong>{len({self.topic(a) for a in self.articles}):02d}</strong> 写作主题</span></div></div>'''
-        self.write("index.html", self.document("首页", intro + self.archive(self.articles), "index.html", active="index.html"))
+        self.write("index.html", self.document("文章", intro + self.archive(self.articles), "index.html", active="index.html", description=self.config["article_description"]))
         for folder, (language, category, destination) in FOLDERS.items():
             entries = [article for article in self.articles if article.category == category]
             label = "CHINESE ESSAYS" if language == "zh-CN" else "ENGLISH WRITING"
@@ -586,7 +590,7 @@ class Blog:
         sitemap = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         for destination in ["index.html", "chinese.html", "english.html", "about.html", *[a.destination for a in self.articles]]:
             SubElement(SubElement(sitemap, "url"), "loc").text = self.canonical(destination)
-        (OUTPUT / "sitemap.xml").write_bytes(tostring(sitemap, encoding="utf-8", xml_declaration=True))
+        (self.output / "sitemap.xml").write_bytes(tostring(sitemap, encoding="utf-8", xml_declaration=True))
         self.feed()
         self.check()
 
@@ -604,7 +608,7 @@ class Blog:
                 self.images += tag == "img"
 
         checked = images = home_links = 0
-        for source in OUTPUT.rglob("*.html"):
+        for source in self.output.rglob("*.html"):
             parser = Links()
             parser.feed(source.read_text(encoding="utf-8"))
             images += parser.images
@@ -621,9 +625,9 @@ class Blog:
                     continue
                 if not parsed.path.startswith(self.base_path):
                     raise ValueError(f"Link misses site base path: {url}")
-                target = (OUTPUT / unquote(parsed.path[len(self.base_path):])).resolve()
-                if not target.is_relative_to(OUTPUT) or not target.is_file():
-                    raise ValueError(f"Broken generated link in {source.relative_to(OUTPUT)}: {url}")
+                target = (self.output / unquote(parsed.path[len(self.base_path):])).resolve()
+                if not target.is_relative_to(self.output) or not target.is_file():
+                    raise ValueError(f"Broken generated link in {source.relative_to(self.output)}: {url}")
                 checked += 1
         print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {home_links} personal-home links and {images} image references.")
 

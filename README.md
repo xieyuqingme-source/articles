@@ -1,8 +1,14 @@
 # 谢雨卿的文章 · Essays by Xie Yuqing (Carl)
 
-我目前在马来西亚攻读工商管理硕士（MBA）。这里收录我的中文原创文章和英文写作练习，记录对生活、学习与社会的观察和思考。
+本科毕业于社科大，目前在马来西亚城市大学读MBA。
 
-我的微信公众号是“谢雨聊”。
+课余时间喜欢读书，写文章，探索AI应用。
+
+在这个网站，我将展示自己的作品和文章。
+
+公众号：“谢雨聊”。
+
+邮箱：[xieyuqing.me@gmail.com](mailto:xieyuqing.me@gmail.com)
 
 I’m Xie Yuqing (Carl), an MBA student in Malaysia. Here I share my original Chinese essays and English writing practice, exploring everyday life, learning, and society.
 

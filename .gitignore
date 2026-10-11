@@ -1,3 +1,5 @@
 /_site/
 /.blog-deps/
 __pycache__/
+/_site_unified/
+/.local-checks/
