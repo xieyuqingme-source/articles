@@ -100,6 +100,30 @@ class MarkdownRenderingTests(unittest.TestCase):
         self.assertTrue(all("background-color:#ffffff" in attrs.get("style", "")
                             for _, attrs in elements))
 
+    def test_article_directory_targets_repeated_and_formatted_headings(self):
+        rendered = self.blog.render("## 重复标题\n\n## 重复标题\n\n### *细节* & 方法\n", self.source)
+        headings = [attrs["id"] for tag, attrs in Elements(rendered).elements
+                    if tag in {"h2", "h3"}]
+        directory = self.blog.toc(rendered)
+        targets = [attrs["href"][1:] for tag, attrs in Elements(directory).elements
+                   if tag == "a" and attrs.get("href", "").startswith("#")
+                   and attrs["href"] != "#top"]
+        self.assertEqual(targets, headings)
+        self.assertEqual(len(set(headings)), 3)
+        self.assertIn("细节 &amp; 方法", directory)
+
+    def test_search_metadata_and_article_titles_cannot_inject_html(self):
+        article = Article(self.source, "中文文章/2026-01-01-测试.html",
+                          '<script>alert("x")</script>', "2026-01-01", "zh-CN",
+                          "中文文章", "chinese.html", '正文含有 " 引号和 <img src=x>。')
+        listing = self.blog.archive([article])
+        elements = Elements(listing).elements
+        self.assertFalse(any(tag in {"script", "img"} for tag, _ in elements))
+        searchable = [attrs["data-search"] for _, attrs in elements if "data-search" in attrs]
+        self.assertEqual(len(searchable), 1)
+        self.assertIn(article.title, searchable[0])
+        self.assertIn('" 引号', searchable[0])
+
 
 if __name__ == "__main__":
     unittest.main()
