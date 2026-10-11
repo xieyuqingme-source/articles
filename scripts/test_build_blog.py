@@ -124,6 +124,36 @@ class MarkdownRenderingTests(unittest.TestCase):
         self.assertIn(article.title, searchable[0])
         self.assertIn('" 引号', searchable[0])
 
+    def test_publication_preserves_month_precision_and_marks_unknown(self):
+        article = Article(self.source, "中文文章/example.html", "测试", "2024-09",
+                          "zh-CN", "中文文章", "chinese.html", "正文")
+        self.assertIn('datetime="2024-09"', self.blog.publication(article))
+        self.assertNotIn("2024-09-01", self.blog.publication(article))
+        article.published = ""
+        self.assertIn("发表时间待确认", self.blog.publication(article))
+        self.assertNotIn("datetime", self.blog.publication(article))
+
+    def test_verified_date_override_does_not_change_old_article_url(self):
+        source = ROOT / "中文文章/2026-10-04-快乐的马来西亚中学生.md"
+        destination = source.relative_to(ROOT).with_suffix(".html").as_posix()
+        self.blog.publication_dates[source.relative_to(ROOT).as_posix()] = {"date": "2024-09-01"}
+        self.blog.collect()
+        article = next(a for a in self.blog.articles if a.source == source)
+        self.assertEqual(article.published, "2024-09-01")
+        self.assertEqual(article.destination, destination)
+
+    def test_archive_contains_original_year_choices_and_pagination(self):
+        articles = [Article(self.source, "中文文章/example.html", "测试", day,
+                            "zh-CN", "中文文章", "chinese.html", "正文")
+                    for day in ["2024-09-01", "2026-10-01", ""]]
+        elements = Elements(self.blog.archive(articles)).elements
+        years = [attrs["value"] for tag, attrs in elements if tag == "option"]
+        self.assertEqual(years, ["all", "2026", "2024", "unknown"])
+        self.assertTrue(any(tag == "nav" and attrs.get("aria-label") == "文章分页"
+                            for tag, attrs in elements))
+        self.assertEqual([attrs["data-year"] for _, attrs in elements if "data-year" in attrs],
+                         ["2024", "2026", ""])
+
 
 if __name__ == "__main__":
     unittest.main()

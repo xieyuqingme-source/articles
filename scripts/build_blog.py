@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import struct
 import sys
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -132,6 +133,9 @@ class Blog:
         self.parser.inline.ruler.before("html_inline", "safe_line_break", safe_line_break)
         self.articles: list[Article] = []
         self.pages = {(ROOT / "README.md").resolve(): "about.html"}
+        dates_file = ROOT / "blog/publication-dates.json"
+        self.publication_dates = json.loads(dates_file.read_text(encoding="utf-8")) if dates_file.exists() else {}
+        self.image_sizes = {}
 
     def href(self, destination: str) -> str:
         return self.base_path + quote(destination, safe="/")
@@ -159,9 +163,68 @@ class Blog:
                 body = "\n".join(text.splitlines()[tokens[0].map[1]:]).lstrip("\n")
                 destination = relative.with_suffix(".html").as_posix()
                 self.pages[source.resolve()] = destination
+                published = self.publication_dates.get(relative.as_posix(), {}).get("date", published)
+                if published and not re.fullmatch(r"\d{4}-\d{2}(?:-\d{2})?", published):
+                    raise ValueError(f"Invalid original publication date: {relative}")
+                if len(published) == 10:
+                    date.fromisoformat(published)
                 self.articles.append(Article(source, destination, title, published,
                                              language, category, listing, body))
-        self.articles.sort(key=lambda article: (article.published, article.destination), reverse=True)
+        self.articles.sort(key=lambda article: (article.published or article.source.name[:10], article.destination), reverse=True)
+
+    def publication(self, article: Article) -> str:
+        if not article.published:
+            return '<span class="publication-date">发表时间待确认</span>'
+        metadata = self.publication_dates.get(article.source.relative_to(ROOT).as_posix(), {})
+        label = escape(metadata.get("label", "发表于"))
+        qualifier = '（首发时间待确认）' if metadata.get("first_publication_unknown") else ''
+        return f'<span class="publication-date">{label} <time datetime="{article.published}">{article.published}</time>{qualifier}</span>'
+
+    def image_dimensions(self, url: str):
+        """Read common image headers locally without changing the original bytes."""
+        parsed = urlsplit(url)
+        if parsed.scheme or parsed.netloc or not parsed.path.startswith(self.base_path):
+            return None
+        path = ROOT / unquote(parsed.path[len(self.base_path):])
+        if path in self.image_sizes:
+            return self.image_sizes[path]
+        size = None
+        with path.open("rb") as stream:
+            header = stream.read(32)
+            if header.startswith(b"\x89PNG\r\n\x1a\n") and len(header) >= 24:
+                size = struct.unpack(">II", header[16:24])
+            elif header[:6] in {b"GIF87a", b"GIF89a"} and len(header) >= 10:
+                size = struct.unpack("<HH", header[6:10])
+            elif header.startswith(b"\xff\xd8"):
+                stream.seek(2)
+                while True:
+                    byte = stream.read(1)
+                    if not byte:
+                        break
+                    if byte != b"\xff":
+                        continue
+                    marker = stream.read(1)
+                    while marker == b"\xff":
+                        marker = stream.read(1)
+                    if not marker or marker in {b"\xd9", b"\xda"}:
+                        break
+                    if marker in {b"\x00", b"\xd8"} or 0xd0 <= marker[0] <= 0xd7:
+                        continue
+                    length_bytes = stream.read(2)
+                    if len(length_bytes) != 2:
+                        break
+                    length = struct.unpack(">H", length_bytes)[0]
+                    if length < 2:
+                        break
+                    if marker[0] in {0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf}:
+                        data = stream.read(5)
+                        if len(data) == 5:
+                            height, width = struct.unpack(">HH", data[1:5])
+                            size = (width, height)
+                        break
+                    stream.seek(length - 2, 1)
+        self.image_sizes[path] = size
+        return size
 
     def rewrite(self, url: str, source: Path) -> str:
         parsed = urlsplit(url)
@@ -196,6 +259,10 @@ class Blog:
             if token.type == "image":
                 token.attrSet("loading", "lazy")
                 token.attrSet("decoding", "async")
+                dimensions = self.image_dimensions(token.attrGet("src") or "")
+                if dimensions and all(dimensions):
+                    token.attrSet("width", str(dimensions[0]))
+                    token.attrSet("height", str(dimensions[1]))
             for child in token.children or []:
                 visit(child)
 
@@ -273,13 +340,15 @@ class Blog:
         title = article.title.lower()
         if any(word in title for word in ("中学生", "教育", "学校")):
             return "学习与思考"
-        if any(word in title for word in ("明朝", "皇帝", "历史", "朝代", "姓名", "华人")):
-            return "历史与文化"
-        if any(word in title for word in ("吉隆坡", "马来西亚", "地铁", "天气", "城市", "布城")):
-            return "城市生活"
-        if any(word in title for word in ("markdown", "word", "geo", "生成式", "ai时代", "论文")):
+        if any(word in title for word in ("markdown", "word", "geo", "生成式", "ai", "人工智能", "论文", "youtube", "扣子", "公众号", "写作", "创作", "互联网", "网站")):
             return "科技与写作"
-        if any(word in title for word in ("学习", "study", "learning", "读书", "学术", "时区", "经济", "mba", "读研")):
+        if any(word in title for word in ("资本论", "劳动", "价值形式", "生产方式", "工资", "就业", "失业", "经济", "社会主义", "煤老板", "家督", "继承", "生育", "人口", "生存", "重男轻女")):
+            return "经济与社会"
+        if any(word in title for word in ("明朝", "皇帝", "历史", "朝代", "姓名", "华人", "诸葛亮", "刘备", "庞统", "范仲淹", "李白", "毛泽东", "司马迁", "史记", "苏轼", "近体诗", "诗歌", "西塞山", "孔子", "老子", "四川话", "传统")):
+            return "历史与文化"
+        if any(word in title for word in ("吉隆坡", "马来西亚", "地铁", "天气", "城市", "布城", "青岛", "山西", "涿州", "通州", "开车", "出行", "公交", "交通", "旅游")):
+            return "城市生活"
+        if any(word in title for word in ("学习", "study", "learning", "读书", "阅读", "找书", "学术", "时区", "mba", "读研", "英语", "文学", "识字率")):
             return "学习与思考"
         return "生活与思考"
 
@@ -294,11 +363,11 @@ class Blog:
         for index, article in enumerate(articles, 1):
             topic = self.topic(article)
             excerpt = self.excerpt(article)
-            searchable = escape(f"{article.title} {excerpt} {topic} {article.category}", quote=True)
+            searchable = escape(f"{article.title} {excerpt} {topic} {article.category} {article.published}", quote=True)
             cards.append(f'''<li class="article-card">
 <span class="article-number" aria-hidden="true">{index:02d}</span>
-<div class="article-card-content" data-topic="{escape(topic)}" data-search="{searchable}">
-<p class="article-meta"><span class="topic-tag">{escape(topic)}</span><time datetime="{article.published}">{article.published}</time><span>{article.category}</span></p>
+<div class="article-card-content" data-topic="{escape(topic)}" data-year="{article.published[:4]}" data-search="{searchable}">
+<p class="article-meta"><span class="topic-tag">{escape(topic)}</span>{self.publication(article)}<span>{article.category}</span></p>
 <h2 class="article-title"><a href="{escape(self.href(article.destination))}" lang="{article.language}">{escape(article.title)}</a></h2>
 <p class="article-excerpt" lang="{article.language}">{escape(excerpt)}</p>
 <p class="article-read"><span>约 {self.reading_minutes(article)} 分钟阅读</span><a href="{escape(self.href(article.destination))}" aria-label="阅读：{escape(article.title)}">阅读全文 <span aria-hidden="true">↗</span></a></p>
@@ -312,14 +381,20 @@ class Blog:
         for topic in topics:
             count = sum(self.topic(article) == topic for article in articles)
             filters.append(f'<button type="button" class="filter-button" data-filter="{escape(topic)}" aria-pressed="false">{escape(topic)}<span>{count}</span></button>')
+        years = sorted({article.published[:4] for article in articles if article.published}, reverse=True)
+        year_options = ''.join(f'<option value="{year}">{year} 年</option>' for year in years)
+        if any(not article.published for article in articles):
+            year_options += '<option value="unknown">时间待确认</option>'
         return f'''<section class="archive" id="archive" aria-labelledby="archive-heading">
 <div class="section-heading"><div><p class="eyebrow">~/writing · 文章归档</p><h2 id="archive-heading">{escape(title)}</h2><p>{escape(subtitle)}</p></div><span class="archive-total">{len(articles):02d} <small>篇文章</small></span></div>
 <div class="archive-controls" hidden>
 <div class="topic-filters" role="group" aria-label="按主题筛选">{''.join(filters)}</div>
+<div class="archive-query"><label class="year-filter"><span class="sr-only">按发表年份筛选</span><select id="article-year" aria-label="按发表年份筛选"><option value="all">全部年份</option>{year_options}</select></label>
 <label class="search-box"><span class="search-icon" aria-hidden="true"></span><span class="sr-only">搜索文章标题或摘要</span><input type="search" id="article-search" placeholder="搜索标题或摘要…" autocomplete="off" aria-controls="archive-results"><span class="search-key" aria-hidden="true">/</span></label>
-</div>
+</div></div>
 <p class="search-status" id="archive-results" role="status" aria-live="polite" hidden></p>
 {self.listing(articles)}
+<nav class="archive-pagination" aria-label="文章分页" hidden><button type="button" data-page="prev">← 上一页</button><span class="pagination-position"></span><button type="button" data-page="next">下一页 →</button></nav>
 <div class="search-empty" hidden><p>没有找到符合条件的文章。</p><button type="button" class="reset-search">清除搜索与筛选</button></div>
 </section>'''
 
@@ -357,9 +432,10 @@ class Blog:
             item = SubElement(channel, "item")
             address = self.canonical(article.destination)
             for key, value in (("title", article.title), ("link", address), ("guid", address),
-                               ("description", self.excerpt(article)), ("category", self.topic(article)),
-                               ("pubDate", format_datetime(datetime.fromisoformat(article.published).replace(tzinfo=timezone.utc)))):
+                               ("description", self.excerpt(article)), ("category", self.topic(article))):
                 SubElement(item, key).text = value
+            if len(article.published) == 10:
+                SubElement(item, "pubDate").text = format_datetime(datetime.fromisoformat(article.published).replace(tzinfo=timezone.utc))
         (OUTPUT / "feed.xml").write_bytes(tostring(rss, encoding="utf-8", xml_declaration=True))
 
     def write(self, destination: str, html: str):
@@ -399,7 +475,7 @@ class Blog:
         featured = ""
         if self.articles:
             latest = self.articles[0]
-            featured = f'''<aside class="featured-article"><div class="feature-top"><p class="eyebrow">LATEST ESSAY · 最新一篇</p><span aria-hidden="true">↗</span></div><div><p class="featured-meta">{escape(self.topic(latest))} <span> / </span><time datetime="{latest.published}">{latest.published}</time></p><h2><a href="{escape(self.href(latest.destination))}" lang="{latest.language}">{escape(latest.title)}</a></h2><p class="featured-excerpt" lang="{latest.language}">{escape(self.excerpt(latest))}</p></div><a class="featured-link" href="{escape(self.href(latest.destination))}">读这篇文章 <span aria-hidden="true">→</span></a></aside>'''
+            featured = f'''<aside class="featured-article"><div class="feature-top"><p class="eyebrow">LATEST ESSAY · 最新一篇</p><span aria-hidden="true">↗</span></div><div><p class="featured-meta">{escape(self.topic(latest))} <span> / </span>{self.publication(latest)}</p><h2><a href="{escape(self.href(latest.destination))}" lang="{latest.language}">{escape(latest.title)}</a></h2><p class="featured-excerpt" lang="{latest.language}">{escape(self.excerpt(latest))}</p></div><a class="featured-link" href="{escape(self.href(latest.destination))}">读这篇文章 <span aria-hidden="true">→</span></a></aside>'''
         intro = f'''<section class="home-intro" aria-labelledby="home-heading"><div class="intro-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ~/essays · 个人写作</p><h1 id="home-heading">生活、学习<br>与<span>思考。</span></h1><p class="intro-description">{escape(self.config['description'])}</p><p class="intro-english" lang="en">{escape(self.config['english_description'])}</p><div class="intro-actions"><a class="primary-link" href="#archive">浏览文章 <span aria-hidden="true">↓</span></a><a class="quiet-link" href="{escape(self.href('about.html'))}">认识作者 ↗</a></div></div>{featured}</section>
 <div class="archive-banner"><p>写作，是观察世界的另一种方式。</p><div><span><strong>{chinese:02d}</strong> 中文文章</span><span><strong>{english:02d}</strong> English</span><span><strong>{len({self.topic(a) for a in self.articles}):02d}</strong> 写作主题</span></div></div>'''
         self.write("index.html", self.document("首页", intro + self.archive(self.articles), "index.html", active="index.html"))
@@ -409,7 +485,9 @@ class Blog:
             description = "用中文记录生活里的问题、见闻与思考。" if language == "zh-CN" else "Short essays and writing practice, one piece at a time."
             heading = f'<section class="page-intro"><p class="eyebrow">{label}</p><h1>{category}</h1><p>{description}</p></section>'
             self.write(destination, self.document(category, heading + self.archive(entries, "全部文章", "按写作日期排列，最新文章在前。"), destination, active=destination))
-        about = '<section class="page-intro"><p class="eyebrow">~/about · 关于作者</p><h1>关于我</h1><p>从日常出发，在学习中继续追问。</p></section><article class="article-body about-body">' + self.render((ROOT / "README.md").read_text(encoding="utf-8-sig"), ROOT / "README.md") + '</article>'
+        readme = (ROOT / "README.md").read_text(encoding="utf-8-sig")
+        about_text = re.sub(r"(?ms)^## 文章索引 · Article Index\n.*?(?=^## )", "", readme)
+        about = '<section class="page-intro"><p class="eyebrow">~/about · 关于作者</p><h1>关于我</h1><p>从日常出发，在学习中继续追问。</p></section><article class="article-body about-body">' + self.render(about_text, ROOT / "README.md") + '</article>'
         self.write("about.html", self.document("关于我", about, "about.html", active="about.html"))
         for index, article in enumerate(self.articles):
             rendered = self.render(article.markdown, article.source)
@@ -422,8 +500,9 @@ class Blog:
             body = f'''<div class="reading-progress" aria-hidden="true"><span></span></div><article class="reading-page"><header class="article-header">
 <a class="back-link" href="{escape(self.href(article.listing))}">← {article.category}</a>
 <p class="eyebrow">{escape(self.topic(article))}</p><h1>{escape(article.title)}</h1>
-<p class="article-meta"><time datetime="{article.published}">{article.published}</time><span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span></p></header>
+<p class="article-meta">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span></p></header>
 <div class="reading-layout"><div class="reading-content">
+<div class="article-body" id="article-content">{rendered}</div>
 <aside class="wechat-tools" aria-label="公众号排版">
 <div class="wechat-action">
 <button type="button" id="wechat-copy">复制到公众号</button>
@@ -432,7 +511,6 @@ class Blog:
 <details class="wechat-preview"><summary>公众号排版预览</summary>
 <div id="wechat-copy-content">{self.wechat_content(article)}</div></details>
 </aside>
-<div class="article-body" id="article-content">{rendered}</div>
 <div class="article-end"><span aria-hidden="true">◆</span><p>谢谢你读到这里。</p><a href="{escape(self.href('index.html'))}#archive">返回文章归档 →</a></div>{next_reading}</div>{self.toc(rendered)}</div></article>
 <script src="{escape(self.href('assets/wechat-copy.js'))}" defer></script>'''
             self.write(article.destination, self.document(article.title, body, article.destination, article.language, article.listing, self.excerpt(article)))

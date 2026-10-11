@@ -113,7 +113,17 @@ h1, h2 { font-family: var(--serif); }
 .section-heading p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: .8rem; }
 .archive-total { color: var(--accent); font: 2.6rem/1 var(--mono); letter-spacing: -.03em; }
 .archive-total small { display: block; margin-top: 9px; color: var(--muted); font: .67rem/1.4 sans-serif; letter-spacing: .06em; text-align: center; }
-.archive-controls { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
+.archive-controls { display: flex; flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 25px; }
+.archive-query { display: flex; align-self: flex-end; width: min(100%, 440px); gap: 10px; }
+.archive-query .search-box { flex: 1; min-width: 0; }
+.year-filter { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--white); }
+.year-filter select { max-width: 125px; padding: 10px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: .75rem; }
+.year-filter option { color: var(--ink); background: var(--white); }
+.archive-pagination { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 28px; }
+.archive-pagination button { border: 1px solid var(--line); border-radius: 4px; padding: 9px 13px; color: var(--accent); background: var(--surface); font-size: .78rem; }
+.archive-pagination button:hover:not(:disabled) { border-color: var(--accent); }
+.archive-pagination button:disabled { color: var(--muted); opacity: .45; cursor: default; }
+.pagination-position { color: var(--muted); font: .75rem var(--mono); }
 .topic-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .filter-button { display: flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid transparent; border-radius: 3px; color: var(--muted); background: transparent; font-size: .76rem; line-height: 1.6; }
 .filter-button span { font-size: .62rem; opacity: .75; }
@@ -172,7 +182,7 @@ h1, h2 { font-family: var(--serif); }
 .toc-note { color: var(--muted); }
 .reading-progress { position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 12; background: transparent; }
 .reading-progress span { display: block; width: 0; height: 100%; background: var(--accent); }
-.wechat-tools { margin-bottom: 34px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
+.wechat-tools { margin: 34px 0 0; padding: 16px 20px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
 .wechat-action { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 15px; }
 .wechat-tools button { padding: 7px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--white); color: var(--accent); font-size: .74rem; line-height: 1.6; }
 .wechat-tools button:hover { border-color: var(--accent); }
@@ -261,6 +271,7 @@ h1, h2 { font-family: var(--serif); }
   .archive-banner > div > span { padding: 13px 10px; }
   .archive-banner > p { font-size: .9rem; }
   .archive-controls { flex-direction: column; gap: 18px; }
+  .archive-query { align-self: stretch; width: 100%; }
   .search-box { width: 100%; max-width: none; min-width: 0; }
   .section-heading { margin-top: 37px; }
   .section-heading h2 { font-size: 1.7rem; }
@@ -285,7 +296,7 @@ h1, h2 { font-family: var(--serif); }
   .article-toc nav { max-height: 270px; }
   .article-toc .toc-top, .article-toc > .eyebrow, .article-toc > .toc-note { display: none; }
   .article-toc:has(> .toc-note) { display: none; }
-  .wechat-tools { padding: 15px 17px; margin-bottom: 30px; }
+  .wechat-tools { padding: 15px 17px; margin-top: 30px; }
   .article-body { font-size: 16px; line-height: 2; }
   .article-body h2 { font-size: 1.35rem; }
   .article-body h3 { font-size: 1.13rem; }
