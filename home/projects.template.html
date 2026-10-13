@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>作品 / Projects · 谢雨卿</title>
+  <meta name="description" content="谢雨卿的公开作品：雨聊公众号排版与 Coze 论文速记工作流。查看项目源码、解决的问题、实际贡献和使用说明。">
+  <meta name="author" content="Xie Yuqing (Carl)">
+  <link rel="canonical" href="{{site_url}}/projects/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="作品 / Projects · 谢雨卿">
+  <meta property="og:description" content="写作工具与论文阅读工作流，以及各项目的源码和使用说明。">
+  <meta property="og:url" content="{{site_url}}/projects/">
+  <script>try { if (localStorage.getItem("xieyuqing-blog-theme") === "light") document.documentElement.dataset.theme = "light"; } catch (_) {}</script>
+  <link rel="stylesheet" href="/assets/portal.css">
+  <script src="/assets/portal.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到正文</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="谢雨卿个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
+    <nav class="site-nav" aria-label="主导航"><a href="/">个人主页</a><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/" aria-current="page">作品 <span lang="en">Projects</span></a><a href="/articles/about.html">关于我</a></nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" hidden><span class="theme-label">浅色</span></button>
+  </header>
+  <main id="main" class="container projects-main">
+    <section class="projects-intro" aria-labelledby="projects-page-title">
+      <p class="eyebrow"><span aria-hidden="true"></span> SELECTED PROJECTS · 公开作品</p>
+      <h1 id="projects-page-title">作品 <span lang="en">Projects</span></h1>
+      <p class="projects-description">把写作和阅读中的具体问题，整理成可使用的工具与工作流。</p>
+      <p class="projects-note">这 {{project_total}} 项作品通过本地程序或 Coze 环境使用；具体配置与步骤请查看各项目说明。</p>
+    </section>
+    <section class="project-grid" aria-label="公开作品">
+{{project_cards}}
+    </section>
+    <p class="projects-footer-note">项目源码独立维护。使用、反馈与贡献方式见各项目仓库；开源来源与许可见项目说明。</p>
+  </main>
+  <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/" aria-current="page">作品 <span lang="en">Projects</span></a><a href="/articles/about.html">关于我</a><a href="/articles/feed.xml">RSS</a></div></footer>
+</body>
+</html>

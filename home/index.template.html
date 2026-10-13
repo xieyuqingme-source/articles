@@ -19,7 +19,7 @@
   <a class="skip-link" href="#main">跳转到正文</a>
   <header class="site-header container">
     <a class="brand" href="/" aria-label="谢雨卿个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
-    <nav class="site-nav" aria-label="主导航"><a href="/" aria-current="page">个人主页</a><a href="/articles/">文章</a><a href="/articles/about.html">关于我</a></nav>
+    <nav class="site-nav" aria-label="主导航"><a href="/" aria-current="page">个人主页</a><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/articles/about.html">关于我</a></nav>
     <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" hidden><span class="theme-label">浅色</span></button>
   </header>
   <main id="main" class="container">
@@ -31,12 +31,20 @@
         <p class="intro-description">本科毕业于社科大，目前在马来西亚城市大学读MBA。<br>课余时间喜欢读书，写文章，探索AI应用。<br>在这个网站，我将展示自己的作品和文章。<br>公众号：“谢雨聊”。<br>邮箱：<a href="mailto:xieyuqing.me@gmail.com">xieyuqing.me@gmail.com</a></p>
         <a class="quiet-link" href="/articles/about.html">多了解一点 <span aria-hidden="true">↗</span></a>
       </div>
-      <aside class="writing-entry" aria-labelledby="writing-title">
+    </section>
+    <section class="home-entries" aria-label="文章与作品入口">
+      <article class="portal-entry writing-entry" aria-labelledby="writing-title">
         <div class="entry-top"><p class="eyebrow">WRITING · 写作</p><span aria-hidden="true">↗</span></div>
-        <div><h2 id="writing-title">我的文章</h2><p>年寿有时而尽，荣乐止乎其身，二者必至于常期，未若文章之无穷。</p></div>
+        <div><h2 id="writing-title">文章 <small lang="en">Articles</small></h2><p>年寿有时而尽，荣乐止乎其身，二者必至于常期，未若文章之无穷。</p></div>
         <p class="writing-count"><strong>{{article_total}}</strong><span>篇文章<br><small>{{chinese_total}} 中文 · {{english_total}} English</small></span></p>
         <a class="primary-link" href="/articles/">进入文章栏目 <span aria-hidden="true">→</span></a>
-      </aside>
+      </article>
+      <article class="portal-entry projects-entry" aria-labelledby="projects-title">
+        <div class="entry-top"><p class="eyebrow">PROJECTS · 作品</p><span aria-hidden="true">↗</span></div>
+        <div><h2 id="projects-title">作品 <small lang="en">Projects</small></h2><p>从写作和阅读中的具体问题出发，整理成可使用的工具与工作流。</p></div>
+        <p class="writing-count"><strong>{{project_total}}</strong><span>项公开作品<br><small>本地排版工具 · Coze 工作流</small></span></p>
+        <a class="primary-link" href="/projects/">查看作品与使用说明 <span aria-hidden="true">→</span></a>
+      </article>
     </section>
     <section class="recent" aria-labelledby="recent-title">
       <div class="section-heading"><div><p class="eyebrow">RECENT WRITING</p><h2 id="recent-title">最近写的</h2></div><a class="quiet-link" href="/articles/">全部文章 <span aria-hidden="true">↗</span></a></div>
@@ -45,6 +53,6 @@
       </ol>
     </section>
   </main>
-  <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章</a><a href="/articles/about.html">关于我</a><a href="/articles/feed.xml">RSS</a></div></footer>
+  <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/articles/about.html">关于我</a><a href="/articles/feed.xml">RSS</a></div></footer>
 </body>
 </html>

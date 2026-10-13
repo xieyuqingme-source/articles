@@ -4,16 +4,43 @@
   const button = document.getElementById("wechat-copy");
   const status = document.getElementById("wechat-copy-status");
   const source = document.getElementById("wechat-copy-content");
-  if (!button || !status || !source) return;
+  const template = document.getElementById("wechat-copy-template");
+  if (!button || !status || !source || !template || !template.content) return;
+  const preview = source.closest("details");
   let busy = false;
+  let mounted = false;
+
+  // A template is inert: none of its images enter the live document until the
+  // reader opens the preview. Copying uses its own detached clone instead.
+  function cloneContent() {
+    const section = template.content.querySelector("section");
+    if (!section) throw new Error("Missing WeChat content");
+    return section.cloneNode(true);
+  }
+
+  function mountPreview() {
+    if (mounted) return;
+    source.replaceChildren(cloneContent());
+    mounted = true;
+  }
+
+  if (preview) {
+    preview.addEventListener("toggle", () => {
+      if (preview.open) mountPreview();
+    });
+    if (preview.open) mountPreview();
+  }
 
   function prepareContent() {
-    const content = (source.querySelector("section") || source).cloneNode(true);
+    const content = cloneContent();
     content.removeAttribute("id");
     content.querySelectorAll("img, a[href]").forEach((element) => {
       const attribute = element.tagName === "IMG" ? "src" : "href";
       const address = element.getAttribute(attribute);
-      if (!address) return;
+      if (!address) {
+        if (element.tagName === "IMG") throw new Error("Missing image URL");
+        return;
+      }
       const url = new URL(address, document.baseURI);
       if (url.protocol !== "https:" && url.protocol !== "http:") {
         if (element.tagName === "IMG") throw new Error("Unsupported image URL");
@@ -94,9 +121,9 @@
       const content = prepareContent();
       const text = plainText(content);
       let copied = false;
-      if (navigator.clipboard && window.ClipboardItem) {
+      if (navigator.clipboard && typeof navigator.clipboard.write === "function" && window.ClipboardItem) {
         try {
-          await navigator.clipboard.write([new ClipboardItem({
+          await navigator.clipboard.write([new window.ClipboardItem({
             "text/html": new Blob([content.outerHTML], { type: "text/html" }),
             "text/plain": new Blob([text], { type: "text/plain" })
           })]);
@@ -107,7 +134,9 @@
       if (!copied) throw new Error("Copy failed");
       status.textContent = "已复制。请在公众号正文中按 Ctrl+V，保存草稿并预览图片和排版。";
     } catch (_) {
-      const preview = source.closest("details");
+      // The toggle event can be delivered later. Mount synchronously so the
+      // manual-copy instruction never points at an empty preview.
+      try { mountPreview(); } catch (_) { /* Keep the failure message usable. */ }
       if (preview) preview.open = true;
       status.textContent = "复制未成功。请在下方预览中选中正文，按 Ctrl+C，再到公众号粘贴。";
     } finally {

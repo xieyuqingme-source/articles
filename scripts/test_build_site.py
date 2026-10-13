@@ -1,5 +1,12 @@
 """Check unified publication boundaries and link validation without touching source files."""
 from pathlib import Path
+from copy import deepcopy
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from xml.etree import ElementTree as ET
+import json
+import re
+import shutil
 import sys
 import unittest
 from unittest.mock import patch
@@ -8,14 +15,16 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 if (ROOT / ".blog-deps").is_dir():
     sys.path.insert(0, str(ROOT / ".blog-deps"))
-from build_site import site_root, default_root, check_site, Elements
+import build_site
+from build_site import (site_root, default_root, check_site, Elements, load_projects,
+                        validate_projects, render_projects, check_publication_metadata, build_site as publish_site)
 
 
 class UnifiedPublicationTests(unittest.TestCase):
     def test_root_url_normalization(self):
         self.assertEqual(site_root("https://xieyuqingme-source.github.io/"),
                          "https://xieyuqingme-source.github.io")
-        self.assertEqual(default_root(), "https://xieyuqingme-source.github.io")
+        self.assertEqual(default_root(), "https://xieyuqing.me")
 
     def test_project_and_unsafe_urls_are_rejected(self):
         for url in ("https://example.com/articles", "http://example.com/",
@@ -47,6 +56,17 @@ class UnifiedPublicationTests(unittest.TestCase):
                                '<h1 id="介绍">About</h1>')
         self.assertEqual(result["valid_fragments"], 1)
 
+    def test_responsive_sources_and_original_image_are_checked(self):
+        result = self.validate('<img src="/articles/images/a.webp" data-original-src="/articles/images/original.jpg" '
+                               'srcset="/articles/images/a.webp 960w, /articles/images/b.webp 1920w">')
+        self.assertEqual(result["local_links"], 4)
+
+    def test_malformed_or_outside_responsive_sources_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "srcset"):
+            self.validate('<img srcset="/articles/images/a.webp bad">')
+        with self.assertRaisesRegex(ValueError, "outside-publication"):
+            self.validate('<img srcset="../../private.webp 960w">')
+
     def test_missing_fragment_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Missing anchor"):
             self.validate('<a href="#absent">Missing</a>')
@@ -58,6 +78,239 @@ class UnifiedPublicationTests(unittest.TestCase):
     def test_duplicate_ids_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "Duplicate IDs"):
             self.validate('<h1 id="main">Title</h1><div id="main"></div>')
+
+
+class PublicProjectTests(unittest.TestCase):
+    def setUp(self):
+        self.projects = load_projects()
+
+    def test_two_verified_projects_have_source_and_usage_links(self):
+        self.assertEqual([p["id"] for p in self.projects],
+                         ["yuliao-wechat-editor", "coze-paper-quick-reference"])
+        for item in self.projects:
+            with self.subTest(project=item["id"]):
+                self.assertEqual(item["source_url"],
+                                 "https://github.com/xieyuqingme-source/" + item["id"])
+                self.assertEqual(item["guide_url"], item["source_url"] + "/blob/main/README.md")
+                self.assertTrue(item["problem"] and item["features"] and item["contribution"] and item["usage"])
+        self.assertIn("Raphael", self.projects[0]["contribution"])
+        self.assertIn("markdown-it", self.projects[0]["contribution"])
+        self.assertTrue(self.projects[1]["download_url"].endswith(
+            "/blob/main/Workflow-thesis_1-draft-9128.zip"))
+
+    def test_markup_is_displayed_as_text_without_html_or_attribute_injection(self):
+        project = deepcopy(self.projects[0])
+        project["title"] = '<img src=x onerror="alert(1)"> & Example'
+        project["summary"] = '</p><script>alert(1)</script><p>'
+        html = render_projects([project])
+        elements = Elements(html).elements
+        self.assertFalse(any(tag in {"script", "img", "iframe"} for tag, _ in elements))
+        self.assertFalse(any(key.lower().startswith("on") for _, attrs in elements for key in attrs))
+        self.assertIn("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; Example", html)
+        self.assertIn("&lt;/p&gt;&lt;script&gt;", html)
+
+    def test_privacy_schema_rejects_unknown_fields_and_absolute_machine_paths(self):
+        for field, value in (("private_body", "Private article"), ("summary", r"D:\Obsidian Vault\draft.md"),
+                             ("summary", "C:/Users/Author/picture.png"), ("summary", r"\\private-server\share\x"),
+                             ("summary", "/home/author/drafts"), ("summary", "/Users/author/file")):
+            item = deepcopy(self.projects[0]); item[field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                validate_projects({"projects": [item]})
+
+    def test_unsafe_project_links_are_rejected_before_publication(self):
+        for value in ("javascript:alert(1)", "data:text/html,a", "http://github.com/project",
+                      "https://user:secret@github.com/project", "https://github.com/project?token=private",
+                      "https://localhost/project", "https://127.0.0.1/project", "https://192.168.0.1/project",
+                      "https://[::1]/project", "https://host.local/project", "https://github.com:bad/project",
+                      'https://github.com/project" onclick="x', "https://github.com\\project"):
+            item = deepcopy(self.projects[0]); item["source_url"] = value
+            with self.subTest(url=value), self.assertRaises(ValueError):
+                validate_projects({"projects": [item]})
+
+    def test_incomplete_or_duplicate_ids_and_unknown_visuals_are_rejected(self):
+        samples = [[], {}, [self.projects[0], self.projects[0]]]
+        bad = deepcopy(self.projects[0]); bad["id"] = 'bad" id'
+        samples.append([bad])
+        bad = deepcopy(self.projects[0]); bad["icon"] = "https://example.com/private-screenshot.png"
+        samples.append([bad])
+        bad = deepcopy(self.projects[0]); del bad["usage"]
+        samples.append([bad])
+        for items in samples:
+            with self.subTest(items=items), self.assertRaises(ValueError):
+                validate_projects({"projects": items})
+
+    def test_accessible_native_visuals_and_real_buttons_have_no_online_claims(self):
+        html = render_projects(self.projects)
+        elements = Elements(html).elements
+        ids = {attrs["id"] for _, attrs in elements if "id" in attrs}
+        cards = [attrs for tag, attrs in elements if tag == "article"]
+        self.assertEqual(len(cards), 2)
+        self.assertTrue(all(card["aria-labelledby"] in ids for card in cards))
+        svgs = [attrs for tag, attrs in elements if tag == "svg"]
+        self.assertEqual(len(svgs), 2)
+        self.assertTrue(all(svg.get("aria-hidden") == "true" and svg.get("viewbox") == "0 0 360 180"
+                            for svg in svgs))
+        self.assertFalse(any(tag in {"img", "image", "foreignobject"} for tag, _ in elements))
+        self.assertEqual(html.count("查看 GitHub"), 2)
+        self.assertEqual(html.count("下载与使用说明"), 2)
+        self.assertNotIn("在线体验", html)
+        links = {attrs["href"] for tag, attrs in elements if tag == "a"}
+        self.assertEqual(links, {item[key] for item in self.projects for key in
+                                ("source_url", "guide_url", "download_url") if key in item})
+
+    def test_project_data_never_follows_a_symlink(self):
+        with patch.object(Path, "is_symlink", return_value=True), self.assertRaisesRegex(ValueError, "symlinks"):
+            load_projects()
+
+    def test_page_viewport_and_responsive_card_structure_do_not_hide_overflow(self):
+        for name in ("index.template.html", "projects.template.html"):
+            elements = Elements((ROOT / "home" / name).read_text(encoding="utf-8")).elements
+            self.assertTrue(any(tag == "meta" and attrs.get("name") == "viewport"
+                                and attrs.get("content") == "width=device-width, initial-scale=1"
+                                for tag, attrs in elements))
+            self.assertEqual(sum(tag == "h1" for tag, _ in elements), 1)
+        css = (ROOT / "home/assets/portal.css").read_text(encoding="utf-8")
+        self.assertRegex(css, r"\.project-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)")
+        mobile = css.split("@media (max-width: 650px)", 1)[1]
+        self.assertRegex(mobile, r"\.project-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)")
+        self.assertIsNone(re.search(r"overflow(?:-x|-y)?\s*:\s*hidden", css),
+                          "Long bilingual titles must wrap rather than disappear.")
+
+
+class ProjectPublicationTests(unittest.TestCase):
+    """Exercise actual unified output and navigation without copying private article fixtures."""
+    def fake_blog(self, address, output):
+        folder = Path(output)
+        articles = [SimpleNamespace(title="Synthetic article", published="2026-01-01", language="en",
+                                    destination="synthetic.html")]
+
+        def build(clean=False):
+            self.assertFalse(clean, "The existing article build must keep its original clean=False policy.")
+            folder.mkdir(parents=True, exist_ok=True)
+            for name in ("index.html", "about.html", "synthetic.html"):
+                url = address + "/" + name
+                (folder / name).write_text('<html><head><link rel="canonical" href="' + url
+                    + '"><meta property="og:url" content="' + url
+                    + '"></head><body id="main">Synthetic public fixture</body></html>', encoding="utf-8")
+            (folder / "feed.xml").write_text('<rss><channel><link>' + address + '/</link><item><link>'
+                + address + '/synthetic.html</link><guid>' + address + '/synthetic.html</guid></item></channel></rss>', encoding="utf-8")
+            (folder / "sitemap.xml").write_text(
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>'
+                + address + '/index.html</loc></url><url><loc>' + address + '/about.html</loc></url><url><loc>'
+                + address + '/synthetic.html</loc></url></urlset>', encoding="utf-8")
+        return SimpleNamespace(articles=articles, build=build, waline={"enabled": False},
+                               href=lambda path: "/articles/" + path)
+
+    def test_projects_build_has_canonical_sitemap_and_preserves_article_outputs(self):
+        with TemporaryDirectory(prefix="yuliao-site-projects-") as temporary:
+            root = Path(temporary)
+            shutil.copytree(ROOT / "home", root / "home")
+            output = root / "_site_unified"
+            with patch.object(build_site, "ROOT", root), patch.object(build_site, "OUTPUT", output), \
+                 patch.object(build_site, "Blog", side_effect=self.fake_blog):
+                report = publish_site("https://xieyuqing.me")
+                self.assertEqual((report["articles"], report["projects"]), (1, 2))
+                self.assertEqual(report["article_root"], "https://xieyuqing.me/articles/")
+                self.assertTrue(report["success"])
+                home = (output / "index.html").read_text(encoding="utf-8")
+                projects = (output / "projects/index.html").read_text(encoding="utf-8")
+                nav = home.split('class="site-nav"', 1)[1].split("</nav>", 1)[0]
+                self.assertIn('href="/articles/"', nav)
+                self.assertIn('href="/projects/"', nav)
+                self.assertIn('href="/articles/synthetic.html"', home)
+                self.assertIn("Synthetic article", home)
+                for text in (home, projects):
+                    self.assertNotIn("{{", text)
+                    self.assertNotIn("Obsidian Vault", text)
+                    self.assertNotIn("D:\\", text)
+                tags = Elements(projects).elements
+                self.assertTrue(any(tag == "link" and attrs.get("rel") == "canonical"
+                                    and attrs.get("href") == "https://xieyuqing.me/projects/" for tag, attrs in tags))
+                self.assertTrue(any(tag == "meta" and attrs.get("property") == "og:url"
+                                    and attrs.get("content") == "https://xieyuqing.me/projects/" for tag, attrs in tags))
+                sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
+                self.assertEqual(sitemap, ["https://xieyuqing.me/", "https://xieyuqing.me/projects/",
+                                           "https://xieyuqing.me/articles/index.html", "https://xieyuqing.me/articles/about.html",
+                                           "https://xieyuqing.me/articles/synthetic.html"])
+                before = {path.relative_to(output / "articles"): path.read_bytes()
+                          for path in (output / "articles").rglob("*") if path.is_file()}
+                data = json.loads((root / "home/projects.json").read_text(encoding="utf-8"))
+                data["projects"][0]["summary"] = "A revised public project description."
+                (root / "home/projects.json").write_text(json.dumps(data), encoding="utf-8")
+                publish_site("https://xieyuqing.me")
+                after = {path.relative_to(output / "articles"): path.read_bytes()
+                         for path in (output / "articles").rglob("*") if path.is_file()}
+                self.assertEqual(before, after, "Project text updates must not change article paths or RSS.")
+                self.assertIn("A revised public project description.",
+                              (output / "projects/index.html").read_text(encoding="utf-8"))
+                self.assertFalse((output / "projects.json").exists())
+
+    def test_invalid_private_project_data_stops_before_output_is_written(self):
+        with TemporaryDirectory(prefix="yuliao-site-private-") as temporary:
+            root = Path(temporary); (root / "home").mkdir()
+            data = json.loads((ROOT / "home/projects.json").read_text(encoding="utf-8"))
+            data["projects"][0]["usage"] = r"D:\Obsidian Vault\private.md"
+            (root / "home/projects.json").write_text(json.dumps(data), encoding="utf-8")
+            output = root / "_site_unified"
+            with patch.object(build_site, "ROOT", root), patch.object(build_site, "OUTPUT", output), \
+                 patch.object(build_site, "Blog") as blog, self.assertRaisesRegex(ValueError, "public project"):
+                publish_site("https://xieyuqing.me")
+            blog.assert_not_called()
+            self.assertFalse(output.exists())
+
+
+class PublicationMetadataTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = TemporaryDirectory(prefix="yuliao-metadata-", dir=ROOT)
+        self.addCleanup(self.temporary.cleanup)
+        self.output = Path(self.temporary.name)
+        (self.output / "articles").mkdir()
+        urls = ("https://xieyuqing.me/", "https://xieyuqing.me/articles/index.html",
+                "https://xieyuqing.me/articles/example.html")
+        for relative, url in zip(("index.html", "articles/index.html", "articles/example.html"), urls):
+            (self.output / relative).write_text('<html><head><link rel="canonical" href="' + url
+                + '"><meta property="og:url" content="' + url + '"></head><body></body></html>', encoding="utf-8")
+        def sitemap(values):
+            return '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + ''.join(
+                '<url><loc>' + url + '</loc></url>' for url in values) + '</urlset>'
+        (self.output / "sitemap.xml").write_text(sitemap(urls), encoding="utf-8")
+        (self.output / "articles/sitemap.xml").write_text(sitemap(urls[1:]), encoding="utf-8")
+        (self.output / "articles/feed.xml").write_text('<rss><channel><link>https://xieyuqing.me/articles/</link>'
+            '<item><link>' + urls[2] + '</link><guid>' + urls[2] + '</guid></item></channel></rss>', encoding="utf-8")
+        (self.output / "robots.txt").write_text('User-agent: *\nSitemap: https://xieyuqing.me/sitemap.xml\n', encoding="utf-8")
+
+    def validate(self):
+        with patch.object(build_site, "OUTPUT", self.output):
+            return check_publication_metadata("https://xieyuqing.me")
+
+    def test_metadata_sitemaps_and_feed_share_the_requested_domain(self):
+        self.assertEqual(self.validate(), {"success": True, "canonical_pages": 3, "sitemap_urls": 3,
+                                          "rss_items": 1, "domain": "xieyuqing.me"})
+
+    def test_old_default_domain_cannot_silently_skip_site_canonicals(self):
+        with patch.object(build_site, "OUTPUT", self.output), self.assertRaisesRegex(ValueError, "requested site domain"):
+            check_publication_metadata("https://xieyuqingme-source.github.io")
+
+    def test_mismatched_og_or_canonical_target_is_rejected(self):
+        page = self.output / "index.html"
+        original = page.read_text(encoding="utf-8")
+        for replacement in (original.replace('content="https://xieyuqing.me/"', 'content="https://example.com/"'),
+                            original.replace('https://xieyuqing.me/', 'https://xieyuqing.me/articles/example.html')):
+            page.write_text(replacement, encoding="utf-8")
+            with self.assertRaises(ValueError): self.validate()
+
+    def test_missing_or_duplicate_sitemap_and_wrong_feed_origin_are_rejected(self):
+        paths = (self.output / "sitemap.xml", self.output / "articles/sitemap.xml", self.output / "articles/feed.xml",
+                 self.output / "robots.txt")
+        for path in paths:
+            original = path.read_text(encoding="utf-8")
+            path.write_text(original.replace('https://xieyuqing.me', 'https://old.example'), encoding="utf-8")
+            with self.subTest(path=path.name), self.assertRaises(ValueError): self.validate()
+            path.write_text(original, encoding="utf-8")
+        path = self.output / "sitemap.xml"
+        original = path.read_text(encoding="utf-8")
+        path.write_text(original.replace('</urlset>', '<url><loc>https://xieyuqing.me/</loc></url></urlset>'), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "exactly once"): self.validate()
 
 
 if __name__ == "__main__":

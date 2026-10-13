@@ -23,6 +23,7 @@ if (ROOT / ".blog-deps").is_dir():
 
 from markdown_it import MarkdownIt
 from mdit_py_plugins.footnote import footnote_plugin
+from image_assets import ResponsiveImages
 
 OUTPUT = ROOT / "_site"
 INTERACTION_DIR = ROOT / "blog"
@@ -113,8 +114,17 @@ class WechatContent(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         # No blog classes, heading IDs or lazy loading in the clipboard payload.
+        originals = dict(attrs)
         values = {key: value for key, value in attrs
-                  if key not in {"id", "class", "style", "loading", "decoding"}}
+                  if key not in {"id", "class", "style", "loading", "decoding", "srcset", "sizes"}
+                  and not key.startswith("data-original-")}
+        if tag == "img" and originals.get("data-original-src"):
+            values["src"] = originals["data-original-src"]
+            for dimension in ("width", "height"):
+                if originals.get("data-original-" + dimension):
+                    values[dimension] = originals["data-original-" + dimension]
+                else:
+                    values.pop(dimension, None)
         for key in ("src", "href"):
             if values.get(key):
                 values[key] = urljoin(self.page_url, values[key])
@@ -157,6 +167,7 @@ class Blog:
         dates_file = ROOT / "blog/publication-dates.json"
         self.publication_dates = json.loads(dates_file.read_text(encoding="utf-8")) if dates_file.exists() else {}
         self.image_sizes = {}
+        self.responsive_images = ResponsiveImages(ROOT, self.output, self.base_path)
 
     def href(self, destination: str) -> str:
         return self.base_path + quote(destination, safe="/")
@@ -216,6 +227,16 @@ class Blog:
                 size = struct.unpack(">II", header[16:24])
             elif header[:6] in {b"GIF87a", b"GIF89a"} and len(header) >= 10:
                 size = struct.unpack("<HH", header[6:10])
+            elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+                chunk = header[12:16]
+                if chunk == b"VP8X" and len(header) >= 30:
+                    size = (1 + int.from_bytes(header[24:27], "little"),
+                            1 + int.from_bytes(header[27:30], "little"))
+                elif chunk == b"VP8 " and len(header) >= 30 and header[23:26] == b"\x9d\x01\x2a":
+                    size = tuple(value & 0x3fff for value in struct.unpack("<HH", header[26:30]))
+                elif chunk == b"VP8L" and len(header) >= 25 and header[20] == 0x2f:
+                    bits = int.from_bytes(header[21:25], "little")
+                    size = ((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1)
             elif header.startswith(b"\xff\xd8"):
                 stream.seek(2)
                 while True:
@@ -284,6 +305,8 @@ class Blog:
                 if dimensions and all(dimensions):
                     token.attrSet("width", str(dimensions[0]))
                     token.attrSet("height", str(dimensions[1]))
+                for name, value in self.responsive_images.attributes(token.attrGet("src") or "").items():
+                    token.attrSet(name, str(value))
             for child in token.children or []:
                 visit(child)
 
@@ -305,14 +328,29 @@ class Blog:
                  'margin:0;padding:0;max-width:100%;text-align:left;overflow-wrap:anywhere;')
         return f'<section lang="{article.language}" style="{escape(style, quote=True)}">' + "".join(content.parts) + '</section>'
 
+    def wechat_tools(self, article: Article) -> str:
+        """Keep original-image copy markup inert until preview or copy is requested."""
+        return f'''<aside class="wechat-tools" aria-label="公众号排版" lang="zh-CN">
+<div class="wechat-action">
+<button type="button" id="wechat-copy">复制到公众号</button>
+<p id="wechat-copy-status" role="status" aria-live="polite">复制正文和图片；标题在公众号单独填写。</p>
+</div>
+<details class="wechat-preview"><summary>公众号排版预览</summary>
+<div id="wechat-copy-content"></div>
+<template id="wechat-copy-template">{self.wechat_content(article)}</template>
+<noscript><p>请启用 JavaScript 后展开预览或复制正文；上方文章仍可正常阅读。</p></noscript>
+</details></aside>'''
+
     def document(self, title: str, body: str, destination: str, language="zh-CN", active="", description="") -> str:
         description = description or self.config["description"]
         nav = []
-        for label, target in [("个人主页", "/"), ("文章首页", "index.html"), ("中文文章", "chinese.html"),
-                              ("English", "english.html"), ("关于我", "about.html")]:
+        for label, target in [("个人主页", "/"), ("文章首页", "index.html"),
+                              ('作品 <span lang="en">Projects</span>', "/projects/"),
+                              ("中文文章", "chinese.html"), ("English", "english.html"), ("关于我", "about.html")]:
             current = ' aria-current="page"' if target == active else ""
-            address = target if target == "/" else self.href(target)
-            nav.append(f'<a href="{escape(address)}"{current}>{label}</a>')
+            address = target if target in {"/", "/projects/"} else self.href(target)
+            link_language = ' lang="en"' if target == "english.html" else ""
+            nav.append(f'<a href="{escape(address)}"{current}{link_language}>{label}</a>')
         return f'''<!doctype html>
 <html lang="{language}" data-theme="dark">
 <head>
@@ -333,17 +371,17 @@ class Blog:
   {self.waline_head(destination)}
 </head>
 <body id="top">
-  <a class="skip-link" href="#main">跳转到正文 / Skip to content</a>
-  <header class="site-header container">
-    <a class="brand" href="{escape(self.href('index.html'))}"><span class="brand-mark" aria-hidden="true">卿</span><span>{escape(self.config['title'])}<small>XIE YUQING · CARL</small></span></a>
+  <a class="skip-link" href="#main" lang="zh-CN">跳转到正文 / <span lang="en">Skip to content</span></a>
+  <header class="site-header container" lang="zh-CN">
+    <a class="brand" href="{escape(self.href('index.html'))}"><span class="brand-mark" aria-hidden="true">卿</span><span>{escape(self.config['title'])}<small lang="en">XIE YUQING · CARL</small></span></a>
     <div class="header-actions"><nav class="site-nav" aria-label="导航 / Navigation">{''.join(nav)}</nav>
     <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" title="切换到浅色模式" hidden><span class="theme-icon" aria-hidden="true">◐</span><span class="theme-label">浅色</span></button></div>
   </header>
   <main id="main" class="container">{body}</main>
-  <footer class="site-footer container">
+  <footer class="site-footer container" lang="zh-CN">
     <div><strong>{escape(self.config['title'])}</strong><span>生活、学习与社会的观察和思考。</span></div>
     <p>© {date.today().year} {escape(self.config['author'])}</p>
-    <div class="footer-links"><a href="{escape(self.href('feed.xml'))}">RSS 订阅</a><a href="{escape(self.config['repository_url'])}">GitHub ↗</a></div>
+    <div class="footer-links"><a href="{escape(self.href('feed.xml'))}">RSS 订阅</a><a href="{escape(self.config['repository_url'])}" lang="en">GitHub ↗</a></div>
   </footer>
 </body>
 </html>
@@ -363,7 +401,7 @@ class Blog:
     def metrics(self, article: Article) -> str:
         if not self.waline["enabled"]:
             return ""
-        return (f'<span class="article-stat" data-stats-path="{escape(self.href(article.destination))}" hidden>'
+        return (f'<span class="article-stat" data-stats-path="{escape(self.href(article.destination))}" lang="zh-CN" hidden>'
                 '<span data-counter="views" hidden>浏览 <b></b></span>'
                 '<span data-counter="comments" hidden>评论 <b></b></span></span>')
 
@@ -373,13 +411,13 @@ class Blog:
     def statistics_notice(self) -> str:
         if not self.waline["enabled"]:
             return ""
-        return ('<p class="statistics-notice">浏览与评论统计请求会向所选Waline后端及其托管商发送IP和浏览器信息。'
+        return ('<p class="statistics-notice" lang="zh-CN">浏览与评论统计请求会向所选Waline后端及其托管商发送IP和浏览器信息。'
                 + self.provider_notice() + '</p>')
 
     def comments(self, article: Article) -> str:
         if not self.waline["enabled"]:
             return ""
-        return (f'<section class="article-comments" id="article-comments" data-article-path="{escape(self.href(article.destination))}" aria-labelledby="comments-heading" hidden>'
+        return (f'<section class="article-comments" id="article-comments" data-article-path="{escape(self.href(article.destination))}" aria-labelledby="comments-heading" lang="zh-CN" hidden>'
                 '<h2 id="comments-heading">留言</h2><p class="comment-policy">无需注册；昵称必填，邮箱选填。评论审核通过后显示。</p>'
                 '<p class="comment-privacy">评论和昵称会公开；邮箱不公开且不用于通知。评论、昵称、可选邮箱及请求中的IP和浏览器信息会由所选Waline后端及其托管商处理；不公开地区和浏览器标签。'
                 + self.provider_notice() + '</p><div id="waline"></div></section>')
@@ -462,7 +500,7 @@ class Blog:
 <div class="search-empty" hidden><p>没有找到符合条件的文章。</p><button type="button" class="reset-search">清除搜索与筛选</button></div>
 </section>'''
 
-    def toc(self, rendered: str) -> str:
+    def toc(self, rendered: str, language="zh-CN") -> str:
         class Headings(HTMLParser):
             def __init__(self):
                 super().__init__()
@@ -481,10 +519,10 @@ class Blog:
         headings = Headings()
         headings.feed(rendered)
         if not headings.items:
-            return '<aside class="article-toc"><p class="eyebrow">阅读这篇文章</p><p class="toc-note">慢慢读，保持好奇。</p><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'
-        links = ''.join(f'<li class="toc-{tag}"><a href="#{escape(slug)}">{escape(label)}</a></li>'
+            return '<aside class="article-toc" lang="zh-CN"><p class="eyebrow">阅读这篇文章</p><p class="toc-note">慢慢读，保持好奇。</p><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'
+        links = ''.join(f'<li class="toc-{tag}"><a href="#{escape(slug)}" lang="{language}">{escape(label)}</a></li>'
                         for tag, slug, label in headings.items)
-        return f'''<aside class="article-toc"><details open><summary><span>文章目录</span><span class="toc-toggle" aria-hidden="true">+</span></summary><nav aria-label="文章目录"><ol>{links}</ol></nav></details><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'''
+        return f'''<aside class="article-toc" lang="zh-CN"><details open><summary><span>文章目录</span><span class="toc-toggle" aria-hidden="true">+</span></summary><nav aria-label="文章目录"><ol>{links}</ol></nav></details><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'''
 
     def feed(self):
         rss = Element("rss", version="2.0")
@@ -539,6 +577,7 @@ class Blog:
                     target = self.output / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source, target)
+        self.responsive_images.prepare()
         chinese = sum(article.language == "zh-CN" for article in self.articles)
         english = len(self.articles) - chinese
         featured = ""
@@ -566,25 +605,18 @@ class Blog:
             for neighbour, label in ((index - 1, "较新一篇"), (index + 1, "较早一篇")):
                 if 0 <= neighbour < len(self.articles):
                     next_article = self.articles[neighbour]
-                    related.append(f'<a href="{escape(self.href(next_article.destination))}"><span>{label}</span><strong>{escape(next_article.title)}</strong><small>{next_article.published} <span aria-hidden="true">↗</span></small></a>')
-            next_reading = '<nav class="next-reading" aria-label="继续阅读">' + ''.join(related) + '</nav>' if related else ''
+                    related.append(f'<a href="{escape(self.href(next_article.destination))}"><span>{label}</span><strong lang="{next_article.language}">{escape(next_article.title)}</strong><small>{next_article.published} <span aria-hidden="true">↗</span></small></a>')
+            next_reading = '<nav class="next-reading" aria-label="继续阅读" lang="zh-CN">' + ''.join(related) + '</nav>' if related else ''
             body = f'''<div class="reading-progress" aria-hidden="true"><span></span></div><article class="reading-page"><header class="article-header">
-<a class="back-link" href="{escape(self.href(article.listing))}">← {article.category}</a>
-<p class="eyebrow">{escape(self.topic(article))}</p><h1>{escape(article.title)}</h1>
-<p class="article-meta">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span>{self.metrics(article)}</p></header>
+<a class="back-link" href="{escape(self.href(article.listing))}" lang="{article.language}">← {article.category}</a>
+<p class="eyebrow" lang="zh-CN">{escape(self.topic(article))}</p><h1>{escape(article.title)}</h1>
+<p class="article-meta" lang="zh-CN">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span>{self.metrics(article)}</p></header>
 {self.statistics_notice()}
 <div class="reading-layout"><div class="reading-content">
 <div class="article-body" id="article-content">{rendered}</div>
 {self.comments(article)}
-<aside class="wechat-tools" aria-label="公众号排版">
-<div class="wechat-action">
-<button type="button" id="wechat-copy">复制到公众号</button>
-<p id="wechat-copy-status" role="status" aria-live="polite">复制正文和图片；标题在公众号单独填写。</p>
-</div>
-<details class="wechat-preview"><summary>公众号排版预览</summary>
-<div id="wechat-copy-content">{self.wechat_content(article)}</div></details>
-</aside>
-<div class="article-end"><span aria-hidden="true">◆</span><p>谢谢你读到这里。</p><a href="{escape(self.href('index.html'))}#archive">返回文章归档 →</a></div>{next_reading}</div>{self.toc(rendered)}</div></article>
+{self.wechat_tools(article)}
+<div class="article-end" lang="zh-CN"><span aria-hidden="true">◆</span><p>谢谢你读到这里。</p><a href="{escape(self.href('index.html'))}#archive">返回文章归档 →</a></div>{next_reading}</div>{self.toc(rendered, article.language)}</div></article>
 <script src="{escape(self.href('assets/wechat-copy.js'))}" defer></script>'''
             self.write(article.destination, self.document(article.title, body, article.destination, article.language, article.listing, self.excerpt(article)))
         sitemap = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
@@ -607,7 +639,7 @@ class Blog:
                         self.urls.append(value)
                 self.images += tag == "img"
 
-        checked = images = home_links = 0
+        checked = images = root_links = 0
         for source in self.output.rglob("*.html"):
             parser = Links()
             parser.feed(source.read_text(encoding="utf-8"))
@@ -619,9 +651,10 @@ class Blog:
                     continue
                 if not parsed.path:
                     continue
-                # The personal home is a separate Pages site at the same origin.
-                if parsed.path == "/":
-                    home_links += 1
+                # These exact root destinations belong to the unified-site builder.
+                # Do not exempt arbitrary root paths from this article-site check.
+                if parsed.path in {"/", "/projects/"}:
+                    root_links += 1
                     continue
                 if not parsed.path.startswith(self.base_path):
                     raise ValueError(f"Link misses site base path: {url}")
@@ -629,7 +662,7 @@ class Blog:
                 if not target.is_relative_to(self.output) or not target.is_file():
                     raise ValueError(f"Broken generated link in {source.relative_to(self.output)}: {url}")
                 checked += 1
-        print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {home_links} personal-home links and {images} image references.")
+        print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {root_links} unified-root links and {images} image references (including inert copy templates).")
 
 
 if __name__ == "__main__":

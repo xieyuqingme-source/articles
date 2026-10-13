@@ -276,7 +276,11 @@ h1, h2 { font-family: var(--serif); }
   .archive-banner > p { font-size: .9rem; }
   .archive-controls { flex-direction: column; gap: 18px; }
   .archive-query { align-self: stretch; width: 100%; }
+  .archive-query { min-width: 0; }
   .search-box { width: 100%; max-width: none; min-width: 0; }
+  .search-box input, .year-filter select { font-size: 16px; }
+  .year-filter { min-width: 0; max-width: 45%; }
+  .year-filter select { min-width: 0; max-width: 100%; }
   .section-heading { margin-top: 37px; }
   .section-heading h2 { font-size: 1.7rem; }
   .archive-total { font-size: 2.4rem; }

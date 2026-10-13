@@ -1,0 +1,33 @@
+{
+  "projects": [
+    {
+      "id": "yuliao-wechat-editor",
+      "title": "雨聊公众号排版",
+      "english_title": "Yuliao WeChat Editor",
+      "kind": "本地排版工具 · Local editor",
+      "summary": "把 Obsidian 中的 Markdown 笔记整理成适合公众号阅读的文章，在本地匹配图片、预览样式并整理相关文章。",
+      "problem": "笔记中的本地图片、附件路径和公众号排版之间，需要反复手工处理。",
+      "features": "Obsidian Markdown 本地图片匹配、中文排版样式与阅读宽度预览、相关文章整理、富文本复制和带图 HTML 导出。",
+      "contribution": "参考开源 Raphael 的思路与具体实现，围绕 Obsidian 图片匹配、中文样式预览、相关文章和本地草稿做适配；使用 markdown-it，并保留来源及许可证说明。",
+      "usage": "下载源码，按 README 启动本地服务，再手动导入 Markdown 和图片文件夹。复制富文本或导出 HTML 后检查公众号效果；目前没有在线运行版。",
+      "icon": "editor",
+      "source_url": "https://github.com/xieyuqingme-source/yuliao-wechat-editor",
+      "guide_url": "https://github.com/xieyuqingme-source/yuliao-wechat-editor/blob/main/README.md"
+    },
+    {
+      "id": "coze-paper-quick-reference",
+      "title": "Coze 论文速记工作流",
+      "english_title": "Coze Paper Quick Reference",
+      "kind": "Coze 工作流 · Workflow",
+      "summary": "将 PDF 或 Word 论文交给工作流，依次读取链接、用豆包生成论文速记卡，再输出到飞书云文档，便于整理和回看。",
+      "problem": "论文阅读后的要点提取、结构化记录和文档归档，分散在多个工具之间。",
+      "features": "PDF/Word 论文输入 → 链接读取插件 → 豆包模型 → 论文速记卡 → 飞书云文档。",
+      "contribution": "编排论文输入、链接读取插件、豆包模型和飞书文档输出，整合已有平台与组件；提供可下载的工作流及配置说明。",
+      "usage": "下载工作流并导入 Coze，按 README 配置模型、链接读取插件及飞书文档相关设置后运行。这是 Coze 工作流，不是独立在线网页。",
+      "icon": "workflow",
+      "source_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference",
+      "guide_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference/blob/main/README.md",
+      "download_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference/blob/main/Workflow-thesis_1-draft-9128.zip"
+    }
+  ]
+}
