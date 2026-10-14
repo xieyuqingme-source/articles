@@ -49,6 +49,10 @@ main { padding-block: 68px 74px; }
 .entry-top > span { font-size: 1.5rem; }
 .portal-entry h2 { margin: 0 0 14px; font: 500 1.95rem/1.55 var(--serif); }
 .portal-entry h2 small { display: inline-block; margin-left: 8px; color: var(--feature-muted); font: .86rem var(--sans); }
+.entry-top-link, .entry-title-link, .entry-count-link { color: inherit; text-decoration: none; }
+.entry-count-link { display: inline-flex; line-height: 1; }
+.entry-top-link:hover .eyebrow, .entry-title-link:hover, .entry-title-link:hover small, .entry-count-link:hover strong { text-decoration: underline; }
+.entry-top-link:focus-visible, .entry-title-link:focus-visible, .entry-count-link:focus-visible { outline-color: var(--feature-accent); }
 .portal-entry p:not(.eyebrow):not(.writing-count) { margin: 0; color: var(--feature-muted); font-size: .81rem; }
 .writing-count { display: flex; align-items: center; gap: 20px; margin: 0; }
 .writing-count strong { color: var(--feature-accent); font: 2.9rem/1 ui-monospace, Consolas, monospace; }
