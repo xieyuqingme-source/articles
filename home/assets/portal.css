@@ -110,6 +110,10 @@ main { padding-block: 68px 74px; }
 .about-contact dt { color: var(--muted); }
 .about-contact dd { min-width: 0; margin: 0; }
 .about-contact a:hover { color: var(--accent); }
+.about-wechat-qr { margin: 14px 0 0; }
+.about-wechat-qr > a { display: block; width: 180px; max-width: 100%; }
+.about-wechat-qr img { display: block; width: 100%; height: auto; background: #fff; }
+.about-wechat-qr figcaption { max-width: 440px; margin-top: 10px; color: var(--muted); font-size: .8rem; line-height: 1.8; }
 .about-english p { margin: 0; color: var(--muted); line-height: 1.9; }
 .site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 18px; padding-block: 28px 35px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
 .site-footer p { margin: 0; font-family: var(--serif); }

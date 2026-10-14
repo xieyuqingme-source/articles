@@ -132,7 +132,12 @@ def render_about(data):
   <div class="about-bio" lang="zh-CN">{paragraphs}</div>
   <section class="about-contact" aria-labelledby="about-contact-title">
     <h2 id="about-contact-title">联系我</h2>
-    <dl><dt>微信公众号</dt><dd>{text["wechat"]}</dd><dt>邮箱</dt><dd><a href="mailto:{text["email"]}">{text["email"]}</a></dd></dl>
+    <dl><dt>微信公众号</dt><dd>{text["wechat"]}
+      <figure class="about-wechat-qr">
+        <a href="/assets/wechat-qrcode.jpg" aria-label="查看{text["wechat"]}公众号二维码原图"><img src="/assets/wechat-qrcode.jpg" width="1280" height="1280" alt="{text["wechat"]}公众号官方二维码" loading="lazy" decoding="async"></a>
+        <figcaption><a href="/assets/wechat-qrcode.jpg">查看二维码原图</a><br>电脑端请用微信扫码；手机端可保存图片后，在微信中识别二维码。</figcaption>
+      </figure>
+    </dd><dt>邮箱</dt><dd><a href="mailto:{text["email"]}">{text["email"]}</a></dd></dl>
   </section>
   <section class="about-english" lang="en" aria-labelledby="about-english-title">
     <h2 id="about-english-title">About me</h2><p>{text["english_bio"]}</p>
@@ -344,7 +349,7 @@ def build_site(address):
     (OUTPUT / "about").mkdir(exist_ok=True)
     (OUTPUT / "about/index.html").write_text(about_page, encoding="utf-8")
     (OUTPUT / "assets").mkdir(exist_ok=True)
-    for name in ("portal.css", "portal.js"):
+    for name in ("portal.css", "portal.js", "wechat-qrcode.jpg"):
         source = ROOT / "home/assets" / name
         if source.is_symlink(): raise ValueError("Home asset symlinks are not supported.")
         shutil.copy2(source, OUTPUT / "assets" / name)

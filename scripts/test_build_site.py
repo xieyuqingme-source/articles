@@ -244,6 +244,14 @@ class ProjectPublicationTests(unittest.TestCase):
                 self.assertNotIn("Folder Guide", about)
                 self.assertNotIn("Essays by Xie Yuqing", about)
                 self.assertIn(load_about()["english_bio"], about)
+                qr = [attrs for tag, attrs in Elements(about).elements if tag == "img"]
+                self.assertEqual(len(qr), 1)
+                self.assertEqual(qr[0]["src"], "/assets/wechat-qrcode.jpg")
+                self.assertEqual((qr[0]["width"], qr[0]["height"]), ("1280", "1280"))
+                self.assertIn("手机端可保存图片后，在微信中识别二维码", about)
+                self.assertEqual((output / "assets/wechat-qrcode.jpg").read_bytes(),
+                                 (root / "home/assets/wechat-qrcode.jpg").read_bytes())
+                self.assertNotIn("wechat-qrcode", home)
                 # About content is independent from repository README text.
                 (root / "README.md").write_text("Private folder guide; must never appear on /about/.", encoding="utf-8")
                 before = {path.relative_to(output / "articles"): path.read_bytes()
