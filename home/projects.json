@@ -28,6 +28,24 @@
       "source_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference",
       "guide_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference/blob/main/README.md",
       "download_url": "https://github.com/xieyuqingme-source/coze-paper-quick-reference/blob/main/Workflow-thesis_1-draft-9128.zip"
+    },
+    {
+      "id": "yuliao-wallpaper",
+      "title": "雨聊壁纸",
+      "english_title": "Yuliao Wallpaper",
+      "kind": "Windows 桌面工具 · v0.2.0 测试版",
+      "summary": "在 Windows 本地整理壁纸并按设定间隔轮换，提供 Commons 精选选图。v0.2.0 为测试版，仅支持单个活动显示器。",
+      "problem": "本地图片与在线壁纸的挑选、排序、收藏和定时轮换，需要统一管理，并保留恢复原壁纸的入口。",
+      "features": "本地图片导入、Commons 精选、8 个主题多选（含科学技术与太空天文）、批量目标最多 30 张、至少 5 分钟间隔轮换、图库排序、可恢复移除、导出、收藏、原静态壁纸恢复及官方图源入口。",
+      "contribution": "围绕本地壁纸管理与 Commons 选图，整合批量收集、排序、收藏和轮换流程，并提供原壁纸恢复与图源入口。",
+      "usage": "源码与 Windows 测试包已发布；系统要求、启动与配置见 Release 页面及仓库使用说明。自动轮换随机选图，批量结果可能不足 30 张。仅支持单个活动显示器；真实界面、桌面壁纸应用及恢复仍待人工验收。",
+      "icon": "wallpaper",
+      "link_status": "published",
+      "source_url": "https://github.com/xieyuqingme-source/yuliao-wallpaper",
+      "guide_url": "https://github.com/xieyuqingme-source/yuliao-wallpaper/blob/main/README.md",
+      "guide_label": "使用说明",
+      "download_url": "https://github.com/xieyuqingme-source/yuliao-wallpaper/releases/tag/v0.2.0",
+      "download_label": "下载 Windows 测试版"
     }
   ]
 }

@@ -86,9 +86,9 @@ class PublicProjectTests(unittest.TestCase):
         self.projects = load_projects()
 
     def test_two_verified_projects_have_source_and_usage_links(self):
-        self.assertEqual([p["id"] for p in self.projects],
+        self.assertEqual([p["id"] for p in self.projects[:2]],
                          ["yuliao-wechat-editor", "coze-paper-quick-reference"])
-        for item in self.projects:
+        for item in self.projects[:2]:
             with self.subTest(project=item["id"]):
                 self.assertEqual(item["source_url"],
                                  "https://github.com/xieyuqingme-source/" + item["id"])
@@ -145,15 +145,17 @@ class PublicProjectTests(unittest.TestCase):
         elements = Elements(html).elements
         ids = {attrs["id"] for _, attrs in elements if "id" in attrs}
         cards = [attrs for tag, attrs in elements if tag == "article"]
-        self.assertEqual(len(cards), 2)
+        self.assertEqual(len(cards), len(self.projects))
         self.assertTrue(all(card["aria-labelledby"] in ids for card in cards))
         svgs = [attrs for tag, attrs in elements if tag == "svg"]
-        self.assertEqual(len(svgs), 2)
+        self.assertEqual(len(svgs), len(self.projects))
         self.assertTrue(all(svg.get("aria-hidden") == "true" and svg.get("viewbox") == "0 0 360 180"
                             for svg in svgs))
         self.assertFalse(any(tag in {"img", "image", "foreignobject"} for tag, _ in elements))
-        self.assertEqual(html.count("查看 GitHub"), 2)
-        self.assertEqual(html.count("下载与使用说明"), 2)
+        published = sum(item.get("link_status") != "pending" for item in self.projects)
+        self.assertEqual(html.count("查看 GitHub"), published)
+        default_guides = sum(item.get("link_status") != "pending" and "guide_label" not in item for item in self.projects)
+        self.assertEqual(html.count("下载与使用说明"), default_guides)
         self.assertNotIn("在线体验", html)
         links = {attrs["href"] for tag, attrs in elements if tag == "a"}
         self.assertEqual(links, {item[key] for item in self.projects for key in
@@ -162,6 +164,51 @@ class PublicProjectTests(unittest.TestCase):
     def test_project_data_never_follows_a_symlink(self):
         with patch.object(Path, "is_symlink", return_value=True), self.assertRaisesRegex(ValueError, "symlinks"):
             load_projects()
+
+    def test_wallpaper_beta_has_an_honest_pending_card_without_guessed_links(self):
+        item = self.projects[2]
+        self.assertEqual(item["id"], "yuliao-wallpaper")
+        self.assertIn("v0.2.0", item["kind"])
+        self.assertIn("测试版", item["kind"])
+        self.assertIn("单个活动显示器", item["summary"])
+        self.assertIn("人工验收", item["usage"])
+        self.assertIn("30", item["features"])
+        self.assertIn("5 分钟", item["features"])
+        pending = deepcopy(item)
+        for field in ("source_url", "guide_url", "guide_label", "download_url", "download_label"):
+            pending.pop(field, None)
+        pending["link_status"] = "pending"
+        html = render_projects([pending])
+        self.assertIn("发布链接待确认", html)
+        self.assertFalse(any(tag == "a" for tag, _ in Elements(html).elements))
+
+    def test_pending_links_unknown_states_and_unpaired_download_labels_are_rejected(self):
+        pending = deepcopy(self.projects[0])
+        for field in ("source_url", "guide_url"):
+            pending.pop(field)
+        pending["link_status"] = "pending"
+        for field in ("source_url", "guide_url", "guide_label", "download_url", "download_label"):
+            bad = deepcopy(pending); bad[field] = "https://example.com/confirmed-fixture"
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                validate_projects({"projects": [bad]})
+        for status in (None, [], "unconfirmed"):
+            bad = deepcopy(pending); bad["link_status"] = status
+            with self.subTest(status=status), self.assertRaises(ValueError):
+                validate_projects({"projects": [bad]})
+        bad = deepcopy(self.projects[0]); bad["download_label"] = "下载测试版"
+        with self.assertRaises(ValueError):
+            validate_projects({"projects": [bad]})
+
+    def test_confirmed_download_label_is_escaped_without_changing_legacy_links(self):
+        published = deepcopy(self.projects[0])
+        published["download_url"] = "https://example.com/public-test-fixture.zip"
+        published["download_label"] = '<script>download</script>'
+        published["guide_label"] = '<img src=x onerror="guide">'
+        html = render_projects([published])
+        self.assertIn('&lt;script&gt;download&lt;/script&gt;', html)
+        self.assertFalse(any(tag == "script" for tag, _ in Elements(html).elements))
+        self.assertFalse(any(tag == "img" for tag, _ in Elements(html).elements))
+        self.assertIn('href="' + self.projects[0]["source_url"] + '"', html)
 
     def test_page_viewport_and_responsive_card_structure_do_not_hide_overflow(self):
         for name in ("index.template.html", "projects.template.html", "about.template.html"):
@@ -215,7 +262,7 @@ class ProjectPublicationTests(unittest.TestCase):
             with patch.object(build_site, "ROOT", root), patch.object(build_site, "OUTPUT", output), \
                  patch.object(build_site, "Blog", side_effect=self.fake_blog):
                 report = publish_site("https://xieyuqing.me")
-                self.assertEqual((report["articles"], report["projects"]), (1, 2))
+                self.assertEqual((report["articles"], report["projects"]), (1, 3))
                 self.assertEqual(report["article_root"], "https://xieyuqing.me/articles/")
                 self.assertTrue(report["success"])
                 home = (output / "index.html").read_text(encoding="utf-8")

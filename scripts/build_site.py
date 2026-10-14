@@ -16,7 +16,7 @@ OUTPUT = ROOT / "_site_unified"
 
 PROJECT_FIELDS = {"id", "title", "english_title", "kind", "summary", "problem", "features",
                   "contribution", "usage", "icon", "source_url", "guide_url"}
-PROJECT_OPTIONAL_FIELDS = {"download_url"}
+PROJECT_OPTIONAL_FIELDS = {"download_url", "download_label", "guide_label", "link_status"}
 ABOUT_FIELDS = {"name", "english_name", "chinese_bio", "english_bio", "wechat", "email"}
 PRIVATE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\\\\[^\s\\]+[\\/]|/(?:Users|home|mnt)/", re.I)
 PROJECT_ICONS = {
@@ -43,6 +43,12 @@ PROJECT_ICONS = {
   <path d="M270 90h17m-6-6 6 6-6 6" class="visual-arrow"/>
   <rect x="295" y="53" width="42" height="74" rx="8" class="visual-panel"/>
   <path d="M305 72h22M305 84h22M305 96h22M305 108h14" class="visual-line"/>
+</svg>''',
+    "wallpaper": '''<svg viewBox="0 0 360 180" role="presentation" aria-hidden="true" focusable="false">
+  <rect x="36" y="22" width="288" height="126" rx="9" class="visual-panel"/>
+  <circle cx="249" cy="62" r="15" class="visual-image"/>
+  <path d="m55 130 62-67 46 48 32-29 57 48m-57-48 14-20 56 68" class="visual-line"/>
+  <path d="M164 148v15m32-15v15m-48 0h64" class="visual-line"/>
 </svg>''',
 }
 
@@ -75,9 +81,18 @@ def validate_projects(data):
         raise ValueError("Keep between 1 and 100 public project entries.")
     seen = set()
     for item in projects:
-        if (not isinstance(item, dict) or not PROJECT_FIELDS.issubset(item)
+        required = (PROJECT_FIELDS - {"source_url", "guide_url"}
+                    if isinstance(item, dict) and item.get("link_status") == "pending" else PROJECT_FIELDS)
+        if (not isinstance(item, dict) or not required.issubset(item)
                 or set(item) - PROJECT_FIELDS - PROJECT_OPTIONAL_FIELDS):
             raise ValueError("Project fields are incomplete or contain unsupported private metadata.")
+        status = item.get("link_status", "published")
+        if not isinstance(status, str) or status not in {"pending", "published"}:
+            raise ValueError("Project link status must be pending or published.")
+        if status == "pending" and any(name in item for name in ("source_url", "guide_url", "guide_label", "download_url", "download_label")):
+            raise ValueError("Pending projects must not contain unconfirmed publication links.")
+        if "download_label" in item and "download_url" not in item:
+            raise ValueError("A download label requires a confirmed download URL.")
         for name, value in item.items():
             if (not isinstance(value, str) or not value.strip() or len(value) > 2000
                     or PRIVATE_PATH.search(value) or any(ord(c) < 32 for c in value)):
@@ -86,7 +101,7 @@ def validate_projects(data):
             raise ValueError("Project IDs must be unique lowercase slugs.")
         seen.add(item["id"])
         if item["icon"] not in PROJECT_ICONS:
-            raise ValueError("Project visuals must use the built-in editor or workflow icon.")
+            raise ValueError("Project visuals must use a built-in icon.")
         for name in ("source_url", "guide_url", "download_url"):
             if name in item:
                 project_url(item[name])
@@ -153,8 +168,14 @@ def render_projects(projects):
         facts = "".join(f'<div><dt>{label}</dt><dd>{text[name]}</dd></div>' for label, name in (
             ("解决的问题", "problem"), ("主要功能", "features"),
             ("实际贡献", "contribution"), ("使用方式", "usage")))
-        download = (f'<a class="project-guide" href="{text["download_url"]}">下载工作流 <span lang="en">Download</span></a>'
+        download_label = text.get("download_label", "下载工作流")
+        guide_label = text.get("guide_label", "下载与使用说明")
+        download = (f'<a class="project-guide" href="{text["download_url"]}">{download_label} <span lang="en">Download</span></a>'
                     if "download_url" in text else "")
+        actions = ('<span class="project-pending">发布链接待确认</span>'
+                   if item.get("link_status") == "pending" else
+                   f'<a class="project-source" href="{text["source_url"]}">查看 GitHub <span lang="en">Source</span></a>'
+                   f'<a class="project-guide" href="{text["guide_url"]}">{guide_label} <span lang="en">Guide</span></a>{download}')
         cards.append(f'''<article class="project-card" aria-labelledby="project-{text["id"]}">
   <div class="project-visual">{PROJECT_ICONS[item["icon"]]}</div>
   <div class="project-body">
@@ -162,7 +183,7 @@ def render_projects(projects):
     <h2 id="project-{text["id"]}">{text["title"]}<span class="project-english" lang="en">{text["english_title"]}</span></h2>
     <p class="project-summary">{text["summary"]}</p>
     <dl class="project-facts">{facts}</dl>
-    <div class="project-actions"><a class="project-source" href="{text["source_url"]}">查看 GitHub <span lang="en">Source</span></a><a class="project-guide" href="{text["guide_url"]}">下载与使用说明 <span lang="en">Guide</span></a>{download}</div>
+    <div class="project-actions">{actions}</div>
   </div>
 </article>''')
     return "\n".join(cards)

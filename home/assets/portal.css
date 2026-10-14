@@ -95,6 +95,7 @@ main { padding-block: 68px 74px; }
 .project-actions a:first-child { border-color: var(--accent); color: var(--paper); background: var(--accent); }
 .project-actions a span { margin-left: 6px; font-size: .85em; }
 .project-actions a:hover { text-decoration: underline; }
+.project-pending { display: inline-block; margin: 0; padding: 8px 0; color: var(--muted); font-size: .8rem; line-height: 1.6; }
 .projects-footer-note { margin: 30px 0 0; color: var(--muted); font-size: .78rem; }
 .about-intro { max-width: 760px; margin-bottom: 32px; }
 .about-intro h1 { margin: 0; color: var(--accent); font: 550 clamp(2.4rem, 4.5vw, 3.6rem)/1.35 var(--serif); letter-spacing: -.025em; }
