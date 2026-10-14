@@ -17,7 +17,8 @@ if (ROOT / ".blog-deps").is_dir():
     sys.path.insert(0, str(ROOT / ".blog-deps"))
 import build_site
 from build_site import (site_root, default_root, check_site, Elements, load_projects,
-                        validate_projects, render_projects, check_publication_metadata, build_site as publish_site)
+                        validate_projects, render_projects, check_publication_metadata, build_site as publish_site,
+                        load_about, validate_about, render_about)
 
 
 class UnifiedPublicationTests(unittest.TestCase):
@@ -56,10 +57,10 @@ class UnifiedPublicationTests(unittest.TestCase):
                                '<h1 id="介绍">About</h1>')
         self.assertEqual(result["valid_fragments"], 1)
 
-    def test_responsive_sources_and_original_image_are_checked(self):
-        result = self.validate('<img src="/articles/images/a.webp" data-original-src="/articles/images/original.jpg" '
+    def test_responsive_sources_are_checked(self):
+        result = self.validate('<img src="/articles/images/a.webp" '
                                'srcset="/articles/images/a.webp 960w, /articles/images/b.webp 1920w">')
-        self.assertEqual(result["local_links"], 4)
+        self.assertEqual(result["local_links"], 3)
 
     def test_malformed_or_outside_responsive_sources_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "srcset"):
@@ -163,7 +164,7 @@ class PublicProjectTests(unittest.TestCase):
             load_projects()
 
     def test_page_viewport_and_responsive_card_structure_do_not_hide_overflow(self):
-        for name in ("index.template.html", "projects.template.html"):
+        for name in ("index.template.html", "projects.template.html", "about.template.html"):
             elements = Elements((ROOT / "home" / name).read_text(encoding="utf-8")).elements
             self.assertTrue(any(tag == "meta" and attrs.get("name") == "viewport"
                                 and attrs.get("content") == "width=device-width, initial-scale=1"
@@ -187,22 +188,27 @@ class ProjectPublicationTests(unittest.TestCase):
         def build(clean=False):
             self.assertFalse(clean, "The existing article build must keep its original clean=False policy.")
             folder.mkdir(parents=True, exist_ok=True)
-            for name in ("index.html", "about.html", "synthetic.html"):
+            for name in ("index.html", "synthetic.html"):
                 url = address + "/" + name
                 (folder / name).write_text('<html><head><link rel="canonical" href="' + url
                     + '"><meta property="og:url" content="' + url
                     + '"></head><body id="main">Synthetic public fixture</body></html>', encoding="utf-8")
+            url = address.removesuffix("/articles") + "/about/"
+            (folder / "about.html").write_text('<html><head><link rel="canonical" href="' + url
+                + '"><meta property="og:url" content="' + url
+                + '"><meta name="robots" content="noindex,follow"><meta http-equiv="refresh" content="0; url=/about/">'
+                + '</head><body><a href="/about/">About</a></body></html>', encoding="utf-8")
             (folder / "feed.xml").write_text('<rss><channel><link>' + address + '/</link><item><link>'
                 + address + '/synthetic.html</link><guid>' + address + '/synthetic.html</guid></item></channel></rss>', encoding="utf-8")
             (folder / "sitemap.xml").write_text(
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>'
-                + address + '/index.html</loc></url><url><loc>' + address + '/about.html</loc></url><url><loc>'
+                + address + '/index.html</loc></url><url><loc>'
                 + address + '/synthetic.html</loc></url></urlset>', encoding="utf-8")
         return SimpleNamespace(articles=articles, build=build, waline={"enabled": False},
                                href=lambda path: "/articles/" + path)
 
     def test_projects_build_has_canonical_sitemap_and_preserves_article_outputs(self):
-        with TemporaryDirectory(prefix="yuliao-site-projects-") as temporary:
+        with TemporaryDirectory(prefix="yuliao-site-projects-", dir=ROOT) as temporary:
             root = Path(temporary)
             shutil.copytree(ROOT / "home", root / "home")
             output = root / "_site_unified"
@@ -214,12 +220,14 @@ class ProjectPublicationTests(unittest.TestCase):
                 self.assertTrue(report["success"])
                 home = (output / "index.html").read_text(encoding="utf-8")
                 projects = (output / "projects/index.html").read_text(encoding="utf-8")
+                about = (output / "about/index.html").read_text(encoding="utf-8")
                 nav = home.split('class="site-nav"', 1)[1].split("</nav>", 1)[0]
                 self.assertIn('href="/articles/"', nav)
                 self.assertIn('href="/projects/"', nav)
+                self.assertIn('href="/about/"', nav)
                 self.assertIn('href="/articles/synthetic.html"', home)
                 self.assertIn("Synthetic article", home)
-                for text in (home, projects):
+                for text in (home, projects, about):
                     self.assertNotIn("{{", text)
                     self.assertNotIn("Obsidian Vault", text)
                     self.assertNotIn("D:\\", text)
@@ -229,9 +237,15 @@ class ProjectPublicationTests(unittest.TestCase):
                 self.assertTrue(any(tag == "meta" and attrs.get("property") == "og:url"
                                     and attrs.get("content") == "https://xieyuqing.me/projects/" for tag, attrs in tags))
                 sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
-                self.assertEqual(sitemap, ["https://xieyuqing.me/", "https://xieyuqing.me/projects/",
-                                           "https://xieyuqing.me/articles/index.html", "https://xieyuqing.me/articles/about.html",
+                self.assertEqual(sitemap, ["https://xieyuqing.me/", "https://xieyuqing.me/projects/", "https://xieyuqing.me/about/",
+                                           "https://xieyuqing.me/articles/index.html",
                                            "https://xieyuqing.me/articles/synthetic.html"])
+                self.assertEqual(report["metadata"]["compatibility_redirects"], 1)
+                self.assertNotIn("Folder Guide", about)
+                self.assertNotIn("Essays by Xie Yuqing", about)
+                self.assertIn(load_about()["english_bio"], about)
+                # About content is independent from repository README text.
+                (root / "README.md").write_text("Private folder guide; must never appear on /about/.", encoding="utf-8")
                 before = {path.relative_to(output / "articles"): path.read_bytes()
                           for path in (output / "articles").rglob("*") if path.is_file()}
                 data = json.loads((root / "home/projects.json").read_text(encoding="utf-8"))
@@ -246,7 +260,7 @@ class ProjectPublicationTests(unittest.TestCase):
                 self.assertFalse((output / "projects.json").exists())
 
     def test_invalid_private_project_data_stops_before_output_is_written(self):
-        with TemporaryDirectory(prefix="yuliao-site-private-") as temporary:
+        with TemporaryDirectory(prefix="yuliao-site-private-", dir=ROOT) as temporary:
             root = Path(temporary); (root / "home").mkdir()
             data = json.loads((ROOT / "home/projects.json").read_text(encoding="utf-8"))
             data["projects"][0]["usage"] = r"D:\Obsidian Vault\private.md"
@@ -257,6 +271,33 @@ class ProjectPublicationTests(unittest.TestCase):
                 publish_site("https://xieyuqing.me")
             blog.assert_not_called()
             self.assertFalse(output.exists())
+
+
+class PublicBiographyTests(unittest.TestCase):
+    def test_known_biography_is_preserved_without_repository_guides(self):
+        data = load_about()
+        self.assertEqual(data["name"], "谢雨卿")
+        self.assertEqual(data["wechat"], "谢雨聊")
+        self.assertEqual(data["email"], "xieyuqing.me@gmail.com")
+        html = render_about(data)
+        self.assertEqual(sum(tag == "article" for tag, _ in Elements(html).elements), 1)
+        for paragraph in data["chinese_bio"]:
+            self.assertIn(paragraph, html)
+        self.assertNotIn("Folder Guide", html)
+
+    def test_text_is_escaped_and_private_fields_are_rejected(self):
+        data = deepcopy(load_about())
+        data["name"] = '<script>alert("name")</script>'
+        self.assertNotIn("<script>", render_about(data))
+        for key, value in (("internal_notes", "Private"), ("chinese_bio", []),
+                           ("name", r"D:\Obsidian Vault\private.md"), ("email", 'x@example.com" onclick="x')):
+            sample = deepcopy(load_about()); sample[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                validate_about(sample)
+
+    def test_data_symlinks_are_rejected(self):
+        with patch.object(Path, "is_symlink", return_value=True), self.assertRaisesRegex(ValueError, "symlinks"):
+            load_about()
 
 
 class PublicationMetadataTests(unittest.TestCase):
@@ -311,6 +352,38 @@ class PublicationMetadataTests(unittest.TestCase):
         original = path.read_text(encoding="utf-8")
         path.write_text(original.replace('</urlset>', '<url><loc>https://xieyuqing.me/</loc></url></urlset>'), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "exactly once"): self.validate()
+
+    def test_only_explicit_legacy_about_redirect_can_share_about_canonical(self):
+        (self.output / "about").mkdir()
+        url = "https://xieyuqing.me/about/"
+        (self.output / "about/index.html").write_text('<link rel="canonical" href="' + url
+            + '"><meta property="og:url" content="' + url + '">', encoding="utf-8")
+        sitemap = self.output / "sitemap.xml"
+        sitemap.write_text(sitemap.read_text(encoding="utf-8").replace('</urlset>',
+            '<url><loc>' + url + '</loc></url></urlset>'), encoding="utf-8")
+        redirect = '<link rel="canonical" href="' + url + '"><meta property="og:url" content="' + url \
+            + '"><meta name="robots" content="noindex,follow"><meta http-equiv="refresh" content="0; url=/about/">' \
+            + '<a href="/about/">About</a>'
+        legacy = self.output / "articles/about.html"
+        legacy.write_text(redirect, encoding="utf-8")
+        self.assertEqual(self.validate()["canonical_pages"], 4)
+        self.assertEqual(self.validate()["compatibility_redirects"], 1)
+        for changed in (redirect.replace('noindex,follow', 'index,follow'),
+                        redirect.replace('0; url=/about/', '3; url=/about/'),
+                        redirect.replace('href="/about/"', 'href="/articles/"')):
+            legacy.write_text(changed, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "noindex redirect"):
+                self.validate()
+        legacy.write_text(redirect, encoding="utf-8")
+        alias = self.output / "articles/another.html"
+        alias.write_text(redirect, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "different page"):
+            self.validate()
+        alias.unlink()
+        sitemap.write_text(sitemap.read_text(encoding="utf-8").replace('</urlset>',
+            '<url><loc>https://xieyuqing.me/articles/about.html</loc></url></urlset>'), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "exactly once"):
+            self.validate()
 
 
 if __name__ == "__main__":

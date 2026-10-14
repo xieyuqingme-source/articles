@@ -13,14 +13,12 @@ from unittest.mock import Mock, patch
 import unittest
 from urllib.parse import unquote
 
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 if (ROOT / ".blog-deps").is_dir():
     sys.path.insert(0, str(ROOT / ".blog-deps"))
 
-from build_blog import Article, Blog, WechatContent, read_waline_config  # noqa: E402
-
+from build_blog import Article, Blog, read_waline_config  # noqa: E402
 
 class Elements(HTMLParser):
     def __init__(self, html):
@@ -30,7 +28,6 @@ class Elements(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         self.elements.append((tag, dict(attrs)))
-
 
 class MarkdownRenderingTests(unittest.TestCase):
     def setUp(self):
@@ -87,24 +84,6 @@ class MarkdownRenderingTests(unittest.TestCase):
         markdown = "![缺失图片](../images/regression-missing-34f9b51c.png)"
         with self.assertRaisesRegex(ValueError, "Missing or outside-repository link"):
             self.blog.render(markdown, self.source)
-
-    def test_wechat_export_has_external_sources_absolute_images_and_white_background(self):
-        image = next(path for path in sorted((ROOT / "images").iterdir())
-                     if path.is_file() and path.suffix.lower() in {".png", ".jpg"})
-        markdown = "正文。[^明表R04]\n\n" + self.definition + f"\n\n![图片](../images/{image.name})"
-        article = Article(self.source, "中文文章/2026-01-01-测试.html", "测试", "2026-01-01",
-                          "zh-CN", "中文文章", "chinese.html", markdown)
-        html = self.blog.wechat_content(article)
-        elements = Elements(html).elements
-        hrefs = [attrs["href"] for tag, attrs in elements if tag == "a"]
-        images = [attrs for tag, attrs in elements if tag == "img"]
-        self.assertIn(self.reference_url, hrefs)
-        self.assertEqual(len(images), 1)
-        self.assertEqual(unquote(images[0]["src"]),
-                         "https://example.com/articles/images/" + image.name)
-        self.assertNotIn("loading", images[0])
-        self.assertTrue(all("background-color:#ffffff" in attrs.get("style", "")
-                            for _, attrs in elements))
 
     def test_article_directory_targets_repeated_and_formatted_headings(self):
         rendered = self.blog.render("## 重复标题\n\n## 重复标题\n\n### *细节* & 方法\n", self.source)
@@ -234,6 +213,108 @@ class MarkdownRenderingTests(unittest.TestCase):
         self.assertTrue(any(attrs.get("href") == "/articles/english.html"
                             and attrs.get("lang") == "en" for attrs in links))
 
+    def test_about_navigation_uses_root_route_without_article_prefix(self):
+        page = self.blog.document("Example", "<p>Body</p>", "example.html", "en")
+        links = [attrs for tag, attrs in Elements(page).elements if tag == "a"]
+        self.assertEqual(sum(attrs.get("href") == "/about/" for attrs in links), 1)
+        self.assertNotIn('/articles/about.html', page)
+        self.assertNotIn('/articles/about/', page)
+
+    def test_readme_link_rewrites_to_about_without_repository_fragment(self):
+        self.assertEqual(self.blog.rewrite("../README.md?from=article#文件说明--folder-guide",
+                                          self.source), "/about/?from=article")
+
+    def test_legacy_about_is_noindex_root_redirect_without_readme_content(self):
+        page = self.blog.about_redirect()
+        elements = Elements(page).elements
+        canonical = next(attrs["href"] for tag, attrs in elements
+                         if tag == "link" and attrs.get("rel") == "canonical")
+        self.assertEqual(canonical, "https://example.com/about/")
+        self.assertTrue(any(tag == "meta" and attrs.get("name") == "robots"
+                            and attrs.get("content") == "noindex,follow" for tag, attrs in elements))
+        self.assertTrue(any(tag == "meta" and attrs.get("http-equiv") == "refresh"
+                            and attrs.get("content") == "0; url=/about/" for tag, attrs in elements))
+        self.assertTrue(any(tag == "a" and attrs.get("href") == "/about/" for tag, attrs in elements))
+        self.assertNotIn("Folder Guide", page)
+        self.assertNotIn("文件说明", page)
+        self.assertNotIn("mailto:", page)
+
+    def test_legacy_about_canonical_uses_current_origin(self):
+        self.blog.site_url = "https://xieyuqing.me/articles"
+        self.assertIn('href="https://xieyuqing.me/about/"', self.blog.about_redirect())
+        self.assertIn('content="https://xieyuqing.me/about/"', self.blog.about_redirect())
+
+    def test_toc_without_headings_has_no_empty_sidebar(self):
+        self.assertEqual(self.blog.toc("<p>A short article.</p>"), "")
+
+    def test_toc_keeps_native_details_and_accessible_control_targets(self):
+        rendered = self.blog.render("## English heading\n\nText", self.source)
+        markup = self.blog.toc(rendered, "en")
+        elements = Elements(markup).elements
+        self.assertTrue(any(tag == "details" and "open" in attrs for tag, attrs in elements))
+        self.assertTrue(any(tag == "summary" and attrs.get("aria-controls") == "article-toc-links"
+                            and attrs.get("aria-expanded") == "true" for tag, attrs in elements))
+        self.assertTrue(any(tag == "nav" and attrs.get("id") == "article-toc-links"
+                            for tag, attrs in elements))
+        controls = Elements(self.blog.toc_controls()).elements
+        self.assertTrue(any(attrs.get("class") == "toc-controls" and "hidden" in attrs
+                            for _, attrs in controls))
+        buttons = [attrs for tag, attrs in controls if tag == "button"]
+        self.assertEqual([attrs["data-toc-position"] for attrs in buttons], ["left", "right", "hidden"])
+        self.assertEqual([attrs["aria-pressed"] for attrs in buttons], ["false", "true", "false"])
+        self.assertTrue(all(attrs["aria-controls"] == "article-toc" for attrs in buttons))
+
+    def _fixture_build(self):
+        """Build only two synthetic articles, retaining no private input or full site."""
+        with TemporaryDirectory(prefix=".blog-test-", dir=ROOT) as temporary:
+            root = Path(temporary)
+            (root / "blog").mkdir()
+            (root / "blog/style.css").write_text("body{}", encoding="utf-8")
+            (root / "blog/site.js").write_text("", encoding="utf-8")
+            self.blog.output = root / "_site"
+            (self.blog.output / "assets").mkdir(parents=True)
+            (self.blog.output / ".generated-by-blog").write_text("fixture", encoding="utf-8")
+            (self.blog.output / "assets/wechat-copy.js").write_text("obsolete", encoding="utf-8")
+            self.blog.waline = {"enabled": False}
+            self.blog.articles = [
+                Article(root / "English Articles/long.md", "English Articles/long.html", "Long",
+                        "2026-01-02", "en", "English Articles", "english.html", "## Heading\n\nBody"),
+                Article(root / "中文文章/short.md", "中文文章/short.html", "Short",
+                        "2026-01-01", "zh-CN", "中文文章", "chinese.html", "Short body."),
+            ]
+            self.blog.collect = Mock()
+            self.blog.responsive_images.prepare = Mock()
+            with patch("build_blog.ROOT", root), redirect_stdout(StringIO()):
+                # There is deliberately no README: publishing never reads it.
+                self.blog.build(clean=False)
+            pages = {path.relative_to(self.blog.output).as_posix(): path.read_text(encoding="utf-8")
+                     for path in self.blog.output.rglob("*.html")}
+            return {"pages": pages, "sitemap": (self.blog.output / "sitemap.xml").read_text(encoding="utf-8"),
+                    "feed": (self.blog.output / "feed.xml").read_text(encoding="utf-8"),
+                    "obsolete_asset_exists": (self.blog.output / "assets/wechat-copy.js").exists()}
+
+    def test_build_drops_copy_ui_asset_and_legacy_about_sitemap_entry(self):
+        result = self._fixture_build()
+        self.assertFalse(result["obsolete_asset_exists"])
+        self.assertNotIn("about.html", result["sitemap"])
+        self.assertIn("English%20Articles/long.html", result["sitemap"])
+        self.assertEqual(result["feed"].count("<item>"), 2)
+        for page in result["pages"].values():
+            for removed in ("wechat-copy", "wechat-preview", "wechat-tools", "复制到公众号", "Folder Guide"):
+                self.assertNotIn(removed, page)
+        self.assertIn('href="/about/"', result["pages"]["index.html"])
+
+    def test_build_shows_toc_controls_only_for_articles_with_headings(self):
+        result = self._fixture_build()
+        long = result["pages"]["English Articles/long.html"]
+        short = result["pages"]["中文文章/short.html"]
+        self.assertIn('class="toc-controls"', long)
+        self.assertIn('data-toc-position="right"', long)
+        self.assertIn('id="article-toc"', long)
+        self.assertNotIn('class="toc-controls"', short)
+        self.assertNotIn('id="article-toc"', short)
+        self.assertIn('class="reading-layout reading-layout-no-toc"', short)
+
     def test_english_document_marks_chinese_interface_and_keeps_body_language(self):
         page = self.blog.document("Example", "<p>English body</p>", "example.html", "en")
         elements = Elements(page).elements
@@ -278,7 +359,7 @@ class MarkdownRenderingTests(unittest.TestCase):
             self.assertGreater(int(attrs["height"]), 0, image.name)
             self.assertEqual(image.read_bytes(), before, image.name)
 
-    def test_responsive_article_images_restore_original_sources_in_wechat_copy(self):
+    def test_responsive_article_images_keep_srcset_and_lazy_loading(self):
         image = next(path for path in sorted((ROOT / "images").iterdir())
                      if path.is_file() and path.suffix.lower() in {".png", ".jpg"})
         original_url = self.blog.href("images/" + image.name)
@@ -295,79 +376,26 @@ class MarkdownRenderingTests(unittest.TestCase):
         self.assertEqual(attrs["src"], derived["src"])
         self.assertEqual(attrs["loading"], "lazy")
         self.assertEqual(attrs["srcset"], derived["srcset"])
-        copied = self.blog.wechat_content(article)
-        original = next(attrs for tag, attrs in Elements(copied).elements if tag == "img")
-        self.assertEqual(original["src"], "https://example.com" + original_url)
-        self.assertEqual((original["width"], original["height"]), ("4000", "2250"))
-        self.assertFalse(set(original) & {"srcset", "sizes", "loading", "decoding"})
-        self.assertFalse(any(key.startswith("data-original-") for key in original))
 
-    def test_wechat_restore_does_not_keep_derived_size_when_original_size_is_unknown(self):
-        content = WechatContent("https://example.com/articles/example.html")
-        content.feed('<img src="/articles/derived.webp" width="960" height="540" '
-                     'data-original-src="/articles/original.png" data-original-extra="private">')
-        attrs = next(attrs for tag, attrs in Elements("".join(content.parts)).elements if tag == "img")
-        self.assertEqual(attrs["src"], "https://example.com/articles/original.png")
-        self.assertNotIn("width", attrs)
-        self.assertNotIn("height", attrs)
-        self.assertFalse(any(key.startswith("data-original-") for key in attrs))
-
-    def test_wechat_preview_is_an_inert_template_with_empty_live_container(self):
-        image = next(path for path in (ROOT / "images").iterdir()
-                     if path.is_file() and path.suffix.lower() in {".png", ".jpg"})
-        article = Article(self.source, "中文文章/example.html", "示例", "2026-01-01", "en",
-                          "English Articles", "english.html", f"![Image](../images/{image.name})")
-        markup = self.blog.wechat_tools(article)
-        self.assertIn('<div id="wechat-copy-content"></div>', markup)
-        self.assertIn('<template id="wechat-copy-template">', markup)
-        self.assertIn('<noscript>', markup)
-
-        class ActiveImages(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self.template_depth = 0
-                self.active_images = self.inert_images = 0
-
-            def handle_starttag(self, tag, attrs):
-                if tag == "template":
-                    self.template_depth += 1
-                elif tag == "img":
-                    if self.template_depth:
-                        self.inert_images += 1
-                    else:
-                        self.active_images += 1
-
-            def handle_endtag(self, tag):
-                if tag == "template":
-                    self.template_depth -= 1
-
-        parser = ActiveImages()
-        parser.feed(markup)
-        self.assertEqual((parser.active_images, parser.inert_images), (0, 1))
-        self.assertTrue(any(tag == "section" and attrs.get("lang") == "en"
-                            for tag, attrs in Elements(markup).elements))
-
-    def test_render_and_wechat_do_not_modify_original_markdown(self):
+    def test_render_does_not_modify_original_markdown(self):
         source = next((ROOT / "中文文章").rglob("*.md"))
         before = source.read_bytes()
         article = Article(source, "中文文章/example.html", "示例", "2026-01-01", "zh-CN",
                           "中文文章", "chinese.html", source.read_text(encoding="utf-8-sig"))
         self.blog.collect()
         self.blog.render(article.markdown, source)
-        self.blog.wechat_content(article)
         self.assertEqual(source.read_bytes(), before)
 
     def test_article_check_exempts_only_declared_root_destinations(self):
         with TemporaryDirectory(prefix=".blog-test-", dir=ROOT) as temporary:
             self.blog.output = Path(temporary)
             page = self.blog.output / "index.html"
-            page.write_text('<a href="/">Home</a><a href="/projects/">Projects</a>', encoding="utf-8")
+            page.write_text('<a href="/">Home</a><a href="/projects/">Projects</a><a href="/about/">About</a>', encoding="utf-8")
             with redirect_stdout(StringIO()):
                 self.blog.check()
             page.write_text('<a href="/arbitrary/">Missing</a>', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Link misses site base path"):
                 self.blog.check()
-
 
 if __name__ == "__main__":
     unittest.main()

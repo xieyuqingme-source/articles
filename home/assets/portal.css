@@ -96,6 +96,21 @@ main { padding-block: 68px 74px; }
 .project-actions a span { margin-left: 6px; font-size: .85em; }
 .project-actions a:hover { text-decoration: underline; }
 .projects-footer-note { margin: 30px 0 0; color: var(--muted); font-size: .78rem; }
+.about-intro { max-width: 760px; margin-bottom: 32px; }
+.about-intro h1 { margin: 0; color: var(--accent); font: 550 clamp(2.4rem, 4.5vw, 3.6rem)/1.35 var(--serif); letter-spacing: -.025em; }
+.about-intro h1 span { display: inline-block; margin-left: 16px; color: var(--muted); font: 400 .5em var(--sans); letter-spacing: 0; }
+.about-profile { max-width: 760px; min-width: 0; overflow-wrap: anywhere; }
+.about-name { margin: 0 0 6px; font: 550 1.8rem/1.5 var(--serif); }
+.about-identity { margin: 0 0 28px; color: var(--muted); font-size: .9rem; letter-spacing: .035em; }
+.about-bio { line-height: 1.95; }
+.about-bio p { margin: 0 0 16px; }
+.about-contact, .about-english { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+.about-contact h2, .about-english h2 { margin: 0 0 16px; font: 550 1.25rem/1.5 var(--serif); }
+.about-contact dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 24px; margin: 0; }
+.about-contact dt { color: var(--muted); }
+.about-contact dd { min-width: 0; margin: 0; }
+.about-contact a:hover { color: var(--accent); }
+.about-english p { margin: 0; color: var(--muted); line-height: 1.9; }
 .site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 18px; padding-block: 28px 35px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
 .site-footer p { margin: 0; font-family: var(--serif); }
 .site-footer > div { display: flex; flex-wrap: wrap; gap: 23px; }
@@ -124,6 +139,9 @@ main { padding-block: 68px 74px; }
   .project-grid { grid-template-columns: minmax(0, 1fr); }
   .projects-intro { margin-bottom: 28px; }
   .projects-intro h1 span { margin-left: 10px; }
+  .about-intro { margin-bottom: 26px; }
+  .about-intro h1 span { margin-left: 10px; }
+  .about-contact dl { gap: 10px 16px; }
   .project-body { padding: 25px; }
   .project-card h2 { font-size: 1.45rem; }
 }

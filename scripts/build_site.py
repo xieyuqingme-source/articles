@@ -1,4 +1,4 @@
-"""Build the personal home, /projects/ and /articles/ into one Pages directory."""
+"""Build the personal home, /projects/, /about/ and /articles/ into one Pages directory."""
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -17,6 +17,7 @@ OUTPUT = ROOT / "_site_unified"
 PROJECT_FIELDS = {"id", "title", "english_title", "kind", "summary", "problem", "features",
                   "contribution", "usage", "icon", "source_url", "guide_url"}
 PROJECT_OPTIONAL_FIELDS = {"download_url"}
+ABOUT_FIELDS = {"name", "english_name", "chinese_bio", "english_bio", "wechat", "email"}
 PRIVATE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\\\\[^\s\\]+[\\/]|/(?:Users|home|mnt)/", re.I)
 PROJECT_ICONS = {
     "editor": '''<svg viewBox="0 0 360 180" role="presentation" aria-hidden="true" focusable="false">
@@ -99,6 +100,46 @@ def load_projects():
     return validate_projects(json.loads(source.read_text(encoding="utf-8")))
 
 
+def validate_about(data):
+    if not isinstance(data, dict) or set(data) != ABOUT_FIELDS:
+        raise ValueError("home/about.json must contain only the public biography fields.")
+    paragraphs = data["chinese_bio"]
+    if not isinstance(paragraphs, list) or not 1 <= len(paragraphs) <= 20:
+        raise ValueError("The Chinese biography needs a short list of paragraphs.")
+    values = [value for key, value in data.items() if key != "chinese_bio"] + paragraphs
+    if any(not isinstance(value, str) or not value.strip() or len(value) > 2000
+           or PRIVATE_PATH.search(value) or any(ord(c) < 32 for c in value) for value in values):
+        raise ValueError("Invalid public biography text.")
+    if not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", data["email"]):
+        raise ValueError("The contact email must be a plain public email address.")
+    return data
+
+
+def load_about():
+    source = ROOT / "home/about.json"
+    if source.is_symlink():
+        raise ValueError("Biography data symlinks are not supported.")
+    return validate_about(json.loads(source.read_text(encoding="utf-8")))
+
+
+def render_about(data):
+    data = validate_about(data)
+    text = {key: escape(value, quote=True) for key, value in data.items() if key != "chinese_bio"}
+    paragraphs = "\n".join(f'<p>{escape(value, quote=True)}</p>' for value in data["chinese_bio"])
+    return f'''<article class="about-profile" aria-labelledby="about-name">
+  <h2 class="about-name" id="about-name">{text["name"]}</h2>
+  <p class="about-identity" lang="en">{text["english_name"]}</p>
+  <div class="about-bio" lang="zh-CN">{paragraphs}</div>
+  <section class="about-contact" aria-labelledby="about-contact-title">
+    <h2 id="about-contact-title">联系我</h2>
+    <dl><dt>微信公众号</dt><dd>{text["wechat"]}</dd><dt>邮箱</dt><dd><a href="mailto:{text["email"]}">{text["email"]}</a></dd></dl>
+  </section>
+  <section class="about-english" lang="en" aria-labelledby="about-english-title">
+    <h2 id="about-english-title">About me</h2><p>{text["english_bio"]}</p>
+  </section>
+</article>'''
+
+
 def render_projects(projects):
     projects = validate_projects({"projects": projects})
     cards = []
@@ -154,7 +195,7 @@ def check_site(address):
             raise ValueError(f"Duplicate IDs: {p}")
         for tag, attrs in page.elements:
             images += tag == "img"
-            references = [attrs[key] for key in ("href", "src", "data-original-src") if attrs.get(key)]
+            references = [attrs[key] for key in ("href", "src") if attrs.get(key)]
             if attrs.get("srcset"):
                 for candidate in attrs["srcset"].split(","):
                     match = re.fullmatch(r"\s*(\S+)\s+([1-9]\d*)w\s*", candidate)
@@ -200,6 +241,7 @@ def check_publication_metadata(address):
 
     canonicals = set()
     article_canonicals = set()
+    compatibility_redirects = 0
     pages = list(OUTPUT.rglob("*.html"))
     if not pages:
         raise ValueError("Build the unified site before checking publication metadata.")
@@ -211,6 +253,17 @@ def check_publication_metadata(address):
               if tag == "meta" and attrs.get("property") == "og:url"]
         if len(canonical) != 1 or len(og) != 1 or canonical != og:
             raise ValueError(f"Each page needs one matching canonical and OG URL: {page}")
+        if page.resolve() == (OUTPUT / "articles/about.html").resolve():
+            robots = [attrs.get("content", "").lower().replace(" ", "") for tag, attrs in elements
+                      if tag == "meta" and attrs.get("name", "").lower() == "robots"]
+            refresh = [attrs.get("content", "") for tag, attrs in elements
+                       if tag == "meta" and attrs.get("http-equiv", "").lower() == "refresh"]
+            manual = any(tag == "a" and attrs.get("href") == "/about/" for tag, attrs in elements)
+            if (canonical[0] != address + "/about/" or target_for(canonical[0]) != (OUTPUT / "about/index.html").resolve()
+                    or robots != ["noindex,follow"] or refresh != ["0; url=/about/"] or not manual):
+                raise ValueError("The legacy about page must be a noindex redirect to /about/.")
+            compatibility_redirects += 1
+            continue
         if target_for(canonical[0]) != page.resolve():
             raise ValueError(f"Canonical points to a different page: {page}")
         if canonical[0] in canonicals:
@@ -241,13 +294,17 @@ def check_publication_metadata(address):
     robots = (OUTPUT / "robots.txt").read_text(encoding="utf-8")
     if robots.count("Sitemap: " + address + "/sitemap.xml") != 1:
         raise ValueError("robots.txt must reference the requested root sitemap.")
-    return {"success": True, "canonical_pages": len(pages), "sitemap_urls": total,
+    report = {"success": True, "canonical_pages": len(canonicals), "sitemap_urls": total,
             "rss_items": len(seen), "domain": expected_origin}
+    if compatibility_redirects:
+        report["compatibility_redirects"] = compatibility_redirects
+    return report
 
 
 def build_site(address):
     address = site_root(address)
     projects = load_projects()
+    about_data = load_about()
     if OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / "_site_unified":
         raise ValueError("Unsafe unified output path.")
     if OUTPUT.exists() and any(OUTPUT.iterdir()) and not (OUTPUT / ".generated-by-unified-site").is_file():
@@ -279,6 +336,13 @@ def build_site(address):
         raise ValueError("Unresolved projects template placeholder.")
     (OUTPUT / "projects").mkdir(exist_ok=True)
     (OUTPUT / "projects/index.html").write_text(projects_page, encoding="utf-8")
+    about_page = (ROOT / "home/about.template.html").read_text(encoding="utf-8")
+    for name, value in {"site_url": escape(address, quote=True), "about_content": render_about(about_data)}.items():
+        about_page = about_page.replace("{{" + name + "}}", value)
+    if "{{" in about_page:
+        raise ValueError("Unresolved about template placeholder.")
+    (OUTPUT / "about").mkdir(exist_ok=True)
+    (OUTPUT / "about/index.html").write_text(about_page, encoding="utf-8")
     (OUTPUT / "assets").mkdir(exist_ok=True)
     for name in ("portal.css", "portal.js"):
         source = ROOT / "home/assets" / name
@@ -288,6 +352,7 @@ def build_site(address):
     sitemap = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/"
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/projects/"
+    ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/about/"
     article_sitemap = ET.parse(OUTPUT / "articles/sitemap.xml")
     for loc in article_sitemap.findall(".//{*}loc"):
         ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = loc.text

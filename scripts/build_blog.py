@@ -14,7 +14,7 @@ import re
 import shutil
 import struct
 import sys
-from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -78,77 +78,6 @@ def safe_line_break(state, silent: bool) -> bool:
     return True
 
 
-class WechatContent(HTMLParser):
-    """Give the copyable body its own inline styles, independent of the blog theme."""
-
-    BASE = "background-color:#ffffff;color:inherit;font-size:inherit;line-height:inherit;letter-spacing:inherit;"
-    STYLES = {
-        "p": "margin:0 0 20px;padding:0;font-size:16px;line-height:2;text-align:left;",
-        "h1": "margin:28px 0 16px;font-size:22px;line-height:1.5;font-weight:700;",
-        "h2": "margin:28px 0 16px;font-size:20px;line-height:1.5;font-weight:700;",
-        "h3": "margin:24px 0 12px;font-size:18px;line-height:1.5;font-weight:700;",
-        "h4": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
-        "h5": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
-        "h6": "margin:20px 0 12px;font-size:16px;line-height:1.5;font-weight:700;",
-        "strong": "font-weight:700;",
-        "em": "font-style:italic;",
-        "s": "text-decoration:line-through;",
-        "a": "color:#316c65;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word;",
-        "img": "display:block;max-width:100%;height:auto;margin:16px auto;border:0;border-radius:0;",
-        "ul": "margin:0 0 20px;padding:0 0 0 24px;list-style:disc;",
-        "ol": "margin:0 0 20px;padding:0 0 0 24px;list-style:decimal;",
-        "li": "margin:6px 0;padding:0;",
-        "blockquote": "margin:20px 0;padding:0 0 0 14px;border-left:3px solid #316c65;",
-        "table": "display:table;width:100%;max-width:100%;margin:20px 0;border-collapse:collapse;table-layout:fixed;font-size:14px;line-height:1.7;letter-spacing:0;",
-        "th": "padding:8px;border:1px solid #dddddd;text-align:left;vertical-align:top;font-weight:700;word-break:break-word;overflow-wrap:anywhere;",
-        "td": "padding:8px;border:1px solid #dddddd;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;",
-        "hr": "margin:28px 0;border:0;border-top:1px solid #dddddd;",
-        "pre": "margin:20px 0;padding:12px;border:1px solid #dddddd;white-space:pre-wrap;word-break:break-word;",
-        "code": 'padding:0;font-family:Consolas,"Liberation Mono",monospace;white-space:pre-wrap;',
-    }
-
-    def __init__(self, page_url: str):
-        super().__init__(convert_charrefs=False)
-        self.page_url = page_url
-        self.parts: list[str] = []
-
-    def handle_starttag(self, tag, attrs):
-        # No blog classes, heading IDs or lazy loading in the clipboard payload.
-        originals = dict(attrs)
-        values = {key: value for key, value in attrs
-                  if key not in {"id", "class", "style", "loading", "decoding", "srcset", "sizes"}
-                  and not key.startswith("data-original-")}
-        if tag == "img" and originals.get("data-original-src"):
-            values["src"] = originals["data-original-src"]
-            for dimension in ("width", "height"):
-                if originals.get("data-original-" + dimension):
-                    values[dimension] = originals["data-original-" + dimension]
-                else:
-                    values.pop(dimension, None)
-        for key in ("src", "href"):
-            if values.get(key):
-                values[key] = urljoin(self.page_url, values[key])
-        values["style"] = self.BASE + self.STYLES.get(tag, "")
-        attributes = "".join(f' {key}="{escape(value, quote=True)}"' if value is not None else f" {key}"
-                             for key, value in values.items())
-        self.parts.append(f"<{tag}{attributes}>")
-
-    def handle_startendtag(self, tag, attrs):
-        self.handle_starttag(tag, attrs)
-
-    def handle_endtag(self, tag):
-        self.parts.append(f"</{tag}>")
-
-    def handle_data(self, data):
-        self.parts.append(data)
-
-    def handle_entityref(self, name):
-        self.parts.append(f"&{name};")
-
-    def handle_charref(self, name):
-        self.parts.append(f"&#{name};")
-
-
 class Blog:
     def __init__(self, site_url: str, output: Path | None = None):
         self.output = Path(output) if output is not None else OUTPUT
@@ -163,7 +92,7 @@ class Blog:
         self.parser.use(footnote_plugin)
         self.parser.inline.ruler.before("html_inline", "safe_line_break", safe_line_break)
         self.articles: list[Article] = []
-        self.pages = {(ROOT / "README.md").resolve(): "about.html"}
+        self.pages = {(ROOT / "README.md").resolve(): "/about/"}
         dates_file = ROOT / "blog/publication-dates.json"
         self.publication_dates = json.loads(dates_file.read_text(encoding="utf-8")) if dates_file.exists() else {}
         self.image_sizes = {}
@@ -174,6 +103,23 @@ class Blog:
 
     def canonical(self, destination: str) -> str:
         return self.site_url + "/" + quote(destination, safe="/")
+
+    def about_redirect(self) -> str:
+        """Keep old external links useful without duplicating the root biography."""
+        parsed = urlsplit(self.site_url)
+        canonical = urlunsplit((parsed.scheme, parsed.netloc, "/about/", "", ""))
+        return f'''<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>关于我页面已迁移</title>
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="{escape(canonical)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{escape(canonical)}">
+<meta http-equiv="refresh" content="0; url=/about/">
+</head><body><p>关于我页面已迁移至网站首页栏目。</p>
+<p><a href="/about/">前往关于我 · About</a></p></body></html>'''
 
     def collect(self):
         for folder, (language, category, listing) in FOLDERS.items():
@@ -287,6 +233,10 @@ class Blog:
             destination = relative.as_posix()
         else:
             raise ValueError(f"Link is outside published content in {source.relative_to(ROOT)}: {url}")
+        if destination == "/about/":
+            # README is repository documentation, never a second biography page.
+            # Its old repository headings have no equivalent anchor on /about/.
+            return urlunsplit(("", "", destination, parsed.query, ""))
         return urlunsplit(("", "", self.href(destination), parsed.query, parsed.fragment))
 
     def render(self, text: str, source: Path) -> str:
@@ -320,35 +270,15 @@ class Blog:
             visit(token)
         return self.parser.renderer.render(tokens, self.parser.options, {})
 
-    def wechat_content(self, article: Article) -> str:
-        content = WechatContent(self.canonical(article.destination))
-        content.feed(self.render(article.markdown, article.source))
-        style = ('background-color:#ffffff;color:#333333;font-family:-apple-system,BlinkMacSystemFont,'
-                 '"Segoe UI","Microsoft YaHei",sans-serif;font-size:16px;line-height:2;letter-spacing:1px;'
-                 'margin:0;padding:0;max-width:100%;text-align:left;overflow-wrap:anywhere;')
-        return f'<section lang="{article.language}" style="{escape(style, quote=True)}">' + "".join(content.parts) + '</section>'
-
-    def wechat_tools(self, article: Article) -> str:
-        """Keep original-image copy markup inert until preview or copy is requested."""
-        return f'''<aside class="wechat-tools" aria-label="公众号排版" lang="zh-CN">
-<div class="wechat-action">
-<button type="button" id="wechat-copy">复制到公众号</button>
-<p id="wechat-copy-status" role="status" aria-live="polite">复制正文和图片；标题在公众号单独填写。</p>
-</div>
-<details class="wechat-preview"><summary>公众号排版预览</summary>
-<div id="wechat-copy-content"></div>
-<template id="wechat-copy-template">{self.wechat_content(article)}</template>
-<noscript><p>请启用 JavaScript 后展开预览或复制正文；上方文章仍可正常阅读。</p></noscript>
-</details></aside>'''
 
     def document(self, title: str, body: str, destination: str, language="zh-CN", active="", description="") -> str:
         description = description or self.config["description"]
         nav = []
         for label, target in [("个人主页", "/"), ("文章首页", "index.html"),
                               ('作品 <span lang="en">Projects</span>', "/projects/"),
-                              ("中文文章", "chinese.html"), ("English", "english.html"), ("关于我", "about.html")]:
+                              ("中文文章", "chinese.html"), ("English", "english.html"), ("关于我", "/about/")]:
             current = ' aria-current="page"' if target == active else ""
-            address = target if target in {"/", "/projects/"} else self.href(target)
+            address = target if target in {"/", "/projects/", "/about/"} else self.href(target)
             link_language = ' lang="en"' if target == "english.html" else ""
             nav.append(f'<a href="{escape(address)}"{current}{link_language}>{label}</a>')
         return f'''<!doctype html>
@@ -519,10 +449,16 @@ class Blog:
         headings = Headings()
         headings.feed(rendered)
         if not headings.items:
-            return '<aside class="article-toc" lang="zh-CN"><p class="eyebrow">阅读这篇文章</p><p class="toc-note">慢慢读，保持好奇。</p><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'
+            return ""
         links = ''.join(f'<li class="toc-{tag}"><a href="#{escape(slug)}" lang="{language}">{escape(label)}</a></li>'
                         for tag, slug, label in headings.items)
-        return f'''<aside class="article-toc" lang="zh-CN"><details open><summary><span>文章目录</span><span class="toc-toggle" aria-hidden="true">+</span></summary><nav aria-label="文章目录"><ol>{links}</ol></nav></details><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'''
+        return f'''<aside class="article-toc" id="article-toc" lang="zh-CN"><details open><summary aria-controls="article-toc-links" aria-expanded="true"><span>文章目录</span><span class="toc-toggle" aria-hidden="true">+</span></summary><nav id="article-toc-links" aria-label="文章目录"><ol>{links}</ol></nav></details><a class="toc-top" href="#top">↑ 回到顶部</a></aside>'''
+
+    def toc_controls(self) -> str:
+        return '''<div class="toc-controls" role="group" aria-label="电脑端目录位置" lang="zh-CN" hidden>
+<span>目录位置</span><button type="button" data-toc-position="left" aria-controls="article-toc" aria-pressed="false">左侧</button>
+<button type="button" data-toc-position="right" aria-controls="article-toc" aria-pressed="true">右侧</button>
+<button type="button" data-toc-position="hidden" aria-controls="article-toc" aria-pressed="false">隐藏</button></div>'''
 
     def feed(self):
         rss = Element("rss", version="2.0")
@@ -559,8 +495,15 @@ class Blog:
         (self.output / ".generated-by-blog").write_text("Generated website only.\n", encoding="utf-8")
         (self.output / ".nojekyll").write_text("", encoding="utf-8")
         (self.output / "assets").mkdir(exist_ok=True)
+        # clean=False is used by the unified builder; remove this obsolete,
+        # generated-only asset so it cannot be deployed after feature removal.
+        obsolete_copy_asset = self.output / "assets/wechat-copy.js"
+        if (obsolete_copy_asset.is_symlink()
+                or not obsolete_copy_asset.resolve().is_relative_to(self.output.resolve())):
+            raise ValueError("Unsafe obsolete generated asset path.")
+        if obsolete_copy_asset.is_file():
+            obsolete_copy_asset.unlink()
         shutil.copy2(ROOT / "blog/style.css", self.output / "assets/style.css")
-        shutil.copy2(ROOT / "blog/wechat-copy.js", self.output / "assets/wechat-copy.js")
         shutil.copy2(ROOT / "blog/site.js", self.output / "assets/site.js")
         if self.waline["enabled"]:
             for name in ("waline-integration.js", "waline-integration.css", "comment-avatar.svg"):
@@ -586,7 +529,7 @@ class Blog:
             featured = f'''<aside class="featured-article"><div class="feature-top"><p class="eyebrow">LATEST ESSAY · 最新一篇</p><span aria-hidden="true">↗</span></div><div><p class="featured-meta">{escape(self.topic(latest))} <span> / </span>{self.publication(latest)}</p><h2><a href="{escape(self.href(latest.destination))}" lang="{latest.language}">{escape(latest.title)}</a></h2><p class="featured-excerpt" lang="{latest.language}">{escape(self.excerpt(latest))}</p></div><a class="featured-link" href="{escape(self.href(latest.destination))}">读这篇文章 <span aria-hidden="true">→</span></a></aside>'''
         chinese_heading, separator, english_heading = self.config['article_heading'].partition(' ')
         article_heading = escape(chinese_heading) + (f' <span>{escape(english_heading)}</span>' if separator else '')
-        intro = f'''<section class="home-intro" aria-labelledby="home-heading"><div class="intro-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ~/essays · 个人写作</p><h1 id="home-heading">{article_heading}</h1><p class="intro-description">{escape(self.config['article_description'])}</p><p class="intro-english" lang="en">{escape(self.config['article_english_description'])}</p><div class="intro-actions"><a class="primary-link" href="#archive">浏览文章 <span aria-hidden="true">↓</span></a><a class="quiet-link" href="{escape(self.href('about.html'))}">认识作者 ↗</a></div></div>{featured}</section>
+        intro = f'''<section class="home-intro" aria-labelledby="home-heading"><div class="intro-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ~/essays · 个人写作</p><h1 id="home-heading">{article_heading}</h1><p class="intro-description">{escape(self.config['article_description'])}</p><p class="intro-english" lang="en">{escape(self.config['article_english_description'])}</p><div class="intro-actions"><a class="primary-link" href="#archive">浏览文章 <span aria-hidden="true">↓</span></a><a class="quiet-link" href="/about/">认识作者 ↗</a></div></div>{featured}</section>
 <div class="archive-banner"><p>写作，是观察世界的另一种方式。</p><div><span><strong>{chinese:02d}</strong> 中文文章</span><span><strong>{english:02d}</strong> English</span><span><strong>{len({self.topic(a) for a in self.articles}):02d}</strong> 写作主题</span></div></div>'''
         self.write("index.html", self.document("文章", intro + self.archive(self.articles), "index.html", active="index.html", description=self.config["article_description"]))
         for folder, (language, category, destination) in FOLDERS.items():
@@ -595,12 +538,13 @@ class Blog:
             description = "用中文记录生活里的问题、见闻与思考。" if language == "zh-CN" else "Short essays and writing practice, one piece at a time."
             heading = f'<section class="page-intro"><p class="eyebrow">{label}</p><h1>{category}</h1><p>{description}</p></section>'
             self.write(destination, self.document(category, heading + self.archive(entries, "全部文章", "按写作日期排列，最新文章在前。"), destination, active=destination))
-        readme = (ROOT / "README.md").read_text(encoding="utf-8-sig")
-        about_text = re.sub(r"(?ms)^## 文章索引 · Article Index\n.*?(?=^## )", "", readme)
-        about = '<section class="page-intro"><p class="eyebrow">~/about · 关于作者</p><h1>关于我</h1><p>从日常出发，在学习中继续追问。</p></section><article class="article-body about-body">' + self.render(about_text, ROOT / "README.md") + '</article>'
-        self.write("about.html", self.document("关于我", about, "about.html", active="about.html"))
+        self.write("about.html", self.about_redirect())
         for index, article in enumerate(self.articles):
             rendered = self.render(article.markdown, article.source)
+            directory = self.toc(rendered, article.language)
+            controls = self.toc_controls() if directory else ""
+            layout = ('class="reading-layout" data-toc-position="right"' if directory
+                      else 'class="reading-layout reading-layout-no-toc"')
             related = []
             for neighbour, label in ((index - 1, "较新一篇"), (index + 1, "较早一篇")):
                 if 0 <= neighbour < len(self.articles):
@@ -612,15 +556,14 @@ class Blog:
 <p class="eyebrow" lang="zh-CN">{escape(self.topic(article))}</p><h1>{escape(article.title)}</h1>
 <p class="article-meta" lang="zh-CN">{self.publication(article)}<span>{escape(self.config['author'])}</span><span>约 {self.reading_minutes(article)} 分钟阅读</span>{self.metrics(article)}</p></header>
 {self.statistics_notice()}
-<div class="reading-layout"><div class="reading-content">
+{controls}
+<div {layout}><div class="reading-content">
 <div class="article-body" id="article-content">{rendered}</div>
 {self.comments(article)}
-{self.wechat_tools(article)}
-<div class="article-end" lang="zh-CN"><span aria-hidden="true">◆</span><p>谢谢你读到这里。</p><a href="{escape(self.href('index.html'))}#archive">返回文章归档 →</a></div>{next_reading}</div>{self.toc(rendered, article.language)}</div></article>
-<script src="{escape(self.href('assets/wechat-copy.js'))}" defer></script>'''
+<div class="article-end" lang="zh-CN"><span aria-hidden="true">◆</span><p>谢谢你读到这里。</p><a href="{escape(self.href('index.html'))}#archive">返回文章归档 →</a></div>{next_reading}</div>{directory}</div></article>'''
             self.write(article.destination, self.document(article.title, body, article.destination, article.language, article.listing, self.excerpt(article)))
         sitemap = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
-        for destination in ["index.html", "chinese.html", "english.html", "about.html", *[a.destination for a in self.articles]]:
+        for destination in ["index.html", "chinese.html", "english.html", *[a.destination for a in self.articles]]:
             SubElement(SubElement(sitemap, "url"), "loc").text = self.canonical(destination)
         (self.output / "sitemap.xml").write_bytes(tostring(sitemap, encoding="utf-8", xml_declaration=True))
         self.feed()
@@ -653,7 +596,7 @@ class Blog:
                     continue
                 # These exact root destinations belong to the unified-site builder.
                 # Do not exempt arbitrary root paths from this article-site check.
-                if parsed.path in {"/", "/projects/"}:
+                if parsed.path in {"/", "/projects/", "/about/"}:
                     root_links += 1
                     continue
                 if not parsed.path.startswith(self.base_path):
@@ -662,7 +605,7 @@ class Blog:
                 if not target.is_relative_to(self.output) or not target.is_file():
                     raise ValueError(f"Broken generated link in {source.relative_to(self.output)}: {url}")
                 checked += 1
-        print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {root_links} unified-root links and {images} image references (including inert copy templates).")
+        print(f"Built {len(self.articles)} articles; checked {checked} article-site links, {root_links} unified-root links and {images} image references.")
 
 
 if __name__ == "__main__":

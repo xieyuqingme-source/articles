@@ -18,7 +18,7 @@ from image_assets import MANIFEST, MARKER, MARKER_TEXT, MIN_SOURCE_BYTES, Respon
 
 class ResponsiveImageTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1])
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
         self.root = self.directory / "source"
@@ -70,16 +70,19 @@ class ResponsiveImageTests(unittest.TestCase):
         generator = self.prepare()
         url = "/articles/images/" + quote("测试 图.png")
         attrs = generator.attributes(url)
-        self.assertEqual(attrs["data-original-src"], url)
-        self.assertEqual(attrs["data-original-width"], "2200")
-        self.assertEqual(attrs["width"], "960")
+        self.assertEqual((attrs["width"], attrs["height"]), ("960", "524"))
+        self.assertTrue(attrs["src"].startswith("/articles/assets/responsive-images/"))
+        derivative = self.output / attrs["src"].removeprefix("/articles/")
+        self.assertTrue(derivative.is_file())
+        with Image.open(derivative) as image:
+            self.assertEqual(image.size, (960, 524))
         self.assertIn(" 960w", attrs["srcset"])
         self.assertIn(" 1920w", attrs["srcset"])
         for remote in ("https://example.com" + url, "//example.com" + url,
                        "/different/images/测试%20图.png", "/articles/images/../测试%20图.png",
                        "/articles/%2e%2e/images/测试%20图.png", "/articles/images\\测试 图.png"):
             self.assertEqual(generator.attributes(remote), {}, remote)
-        self.assertEqual(generator.attributes(url + "?v=1#example")["data-original-src"], url + "?v=1#example")
+        self.assertEqual(generator.attributes(url + "?v=1#example"), attrs)
 
     def test_cache_reused_without_derivative_byte_or_mtime_changes(self):
         self.source()
@@ -195,13 +198,17 @@ class ResponsiveImageTests(unittest.TestCase):
         before = source.read_bytes()
         generator = self.prepare()
         attrs = generator.attributes("/articles/images/rotated.jpg")
-        self.assertEqual((attrs["data-original-width"], attrs["data-original-height"]), ("1000", "2000"))
         self.assertEqual((attrs["width"], attrs["height"]), ("960", "1920"))
+        measured = generator.report()["items"][0]
+        self.assertEqual((measured["original_width"], measured["original_height"]), (1000, 2000))
+        sizes = set()
         for derivative in generator.directory.glob("*.webp"):
             with Image.open(derivative) as image:
+                sizes.add(image.size)
                 self.assertLessEqual(image.width, 1000)
                 self.assertLessEqual(image.height, 2000)
                 self.assertFalse(image.getexif())
+        self.assertEqual(sizes, {(960, 1920), (1000, 2000)})
         self.assertEqual(source.read_bytes(), before)
 
     def test_no_upscale_or_duplicate_width_candidate(self):

@@ -162,13 +162,64 @@
     const headings = [...content.querySelectorAll("h2[id], h3[id], h4[id]")];
     const links = toc ? [...toc.querySelectorAll("nav a")] : [];
     const details = toc && toc.querySelector("details");
-    const mobile = window.matchMedia("(max-width: 760px)");
-    const adaptToc = () => { if (details) details.open = !mobile.matches; };
-    adaptToc();
-    mobile.addEventListener("change", adaptToc);
-    links.forEach((link) => link.addEventListener("click", () => {
-      if (mobile.matches && details) details.open = false;
-    }));
+    const summary = details && details.querySelector("summary");
+    const layout = document.querySelector(".reading-layout");
+    const controls = document.querySelector(".toc-controls");
+    function headingForLink(link) {
+      try {
+        const id = decodeURIComponent(link.hash.slice(1));
+        return headings.find((heading) => heading.id === id) || null;
+      } catch (_) { return null; }
+    }
+    if (toc && details && summary && layout && controls && headings.length && links.length) {
+      const positionKey = "xieyuqing-toc-position";
+      const positions = new Set(["left", "right", "hidden"]);
+      const buttons = [...controls.querySelectorAll("[data-toc-position]")];
+      const mobile = window.matchMedia("(max-width: 760px)");
+      let position = "right";
+      try {
+        const saved = localStorage.getItem(positionKey);
+        if (positions.has(saved)) position = saved;
+      } catch (_) { /* The layout controls still work when storage is unavailable. */ }
+
+      const updateExpanded = () => summary.setAttribute("aria-expanded", String(details.open));
+      function adaptToc() {
+        // Mobile always has its own reachable summary, regardless of desktop preference.
+        layout.dataset.tocPosition = mobile.matches ? "right" : position;
+        details.open = !mobile.matches;
+        updateExpanded();
+        buttons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.tocPosition === position)));
+      }
+      details.addEventListener("toggle", updateExpanded);
+      buttons.forEach((button) => button.addEventListener("click", () => {
+        const requested = button.dataset.tocPosition;
+        if (mobile.matches || !positions.has(requested)) return;
+        position = requested;
+        adaptToc();
+        try { localStorage.setItem(positionKey, position); } catch (_) { /* Persistence is optional. */ }
+      }));
+      controls.hidden = false;
+      adaptToc();
+      if (mobile.addEventListener) mobile.addEventListener("change", adaptToc);
+      else if (mobile.addListener) mobile.addListener(adaptToc);
+      links.forEach((link) => link.addEventListener("click", (event) => {
+        if (!mobile.matches || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || (event.button && event.button !== 0)) return;
+        const heading = headingForLink(link);
+        if (!heading) return;
+        // Leave the anchor's default navigation intact so hash links and Back work.
+        // Move focus before hiding the nav; don't leave keyboard focus in a closed details.
+        const temporaryTabIndex = !heading.hasAttribute("tabindex");
+        if (temporaryTabIndex) {
+          heading.setAttribute("tabindex", "-1");
+          heading.addEventListener("blur", () => {
+            if (heading.getAttribute("tabindex") === "-1") heading.removeAttribute("tabindex");
+          }, { once: true });
+        }
+        heading.focus({ preventScroll: true });
+        details.open = false;
+        updateExpanded();
+      }));
+    }
 
     content.querySelectorAll("table").forEach((table) => {
       table.tabIndex = 0;
@@ -188,7 +239,8 @@
         else break;
       }
       links.forEach((link) => {
-        if (decodeURIComponent(link.hash.slice(1)) === active) link.setAttribute("aria-current", "location");
+        const heading = headingForLink(link);
+        if (heading && heading.id === active) link.setAttribute("aria-current", "location");
         else link.removeAttribute("aria-current");
       });
     }

@@ -39,10 +39,12 @@ jobs:
         run: python scripts/test_image_assets.py
       - name: Check unified site rules
         run: python scripts/test_build_site.py
+      - name: Check local about routes
+        run: python scripts/test_about_routes.py
       - name: Check disabled Waline integration
         run: node scripts/test_waline_logic.mjs
-      - name: Check on-demand preview and rich-text copy
-        run: node scripts/test_wechat_copy.mjs
+      - name: Check reading table of contents
+        run: node scripts/test_toc_logic.cjs
       - name: Build and check personal site
         env:
           BLOG_SITE_URL: ${{ steps.pages.outputs.base_url }}

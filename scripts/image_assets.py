@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 import stat
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 try:
     from PIL import Image, ImageOps, features
@@ -302,7 +302,6 @@ class ResponsiveImages:
                 count_bytes = source.stat().st_size
                 source_bytes += count_bytes
                 largest_bytes += variants[-1]["bytes"]
-                original_url = self.base_path + quote(relative_name, safe="/")
                 self.mapping[relative_name] = {
                     "src": variants[0]["url"],
                     "srcset": ", ".join(f'{item["url"]} {item["width"]}w'
@@ -310,8 +309,6 @@ class ResponsiveImages:
                                         if index == 0 or item["width"] != variants[index - 1]["width"]),
                     "sizes": "(max-width: 760px) calc(100vw - 40px), 760px",
                     "width": str(variants[0]["width"]), "height": str(variants[0]["height"]),
-                    "data-original-src": original_url,
-                    "data-original-width": str(original_size[0]), "data-original-height": str(original_size[1]),
                 }
                 working["items"][relative_name] = {"source_sha256": source_hash, "source_bytes": count_bytes,
                                                        "original_width": original_size[0], "original_height": original_size[1],
@@ -346,10 +343,7 @@ class ResponsiveImages:
         result = self.mapping.get(relative)
         if not result:
             return {}
-        result = dict(result)
-        # Keep the original source URL, including legitimate query/fragment data.
-        result["data-original-src"] = url
-        return result
+        return dict(result)
 
     def report(self) -> dict:
         """Return JSON-safe measured bytes; these are not browser timings."""
