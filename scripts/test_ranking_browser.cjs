@@ -30,11 +30,11 @@ const report = { startedAt: new Date().toISOString(), browser: 'isolated headles
 const expectedDefault = {
   title: '美食从夯到拉',
   rows: [
-    { name: '夯', items: ['火锅'] },
-    { name: '顶级', items: ['面条', '饺子', '汉堡', '西瓜'] },
-    { name: '人上人', items: ['炸鸡'] },
-    { name: 'NPC', items: ['寿司'] },
-    { name: '拉', items: ['披萨', '蛋糕', '奶茶'] }
+    { name: '夯', color: '#f28b82', items: ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '（浙江）干挑面'] },
+    { name: '顶级', color: '#f6b26b', items: ['豌杂面', '手工水饺', '汉堡', '日本拉面', '越南鸡丝米粉', '打抛饭', '羊肉烧麦', '驴肉火烧', '熏肉大饼'] },
+    { name: '人上人', color: '#f9d976', items: ['炸鸡', '折耳根', '速冻水饺', '鸡蛋挂面', '烧烤'] },
+    { name: 'NPC', color: '#e8e5a0', items: ['寿司', '豆汁', '肉骨茶', '北京杂酱面', '西湖醋鱼'] },
+    { name: '拉完了', color: '#a8cf9a', items: ['披萨', '蛋糕', '奶茶', '丝瓜面', '月饼', '蛋挞', '面包', '兰州拉面'] }
   ],
   pool: []
 };
@@ -110,7 +110,11 @@ async function run() {
     return page;
   }
   async function shot(page, name) {
-    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all(Array.from(document.images, image => image.decode().catch(() => {})));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
     await page.screenshot({ path: path.join(output, name), fullPage: true, animations: 'disabled' });
     report.screenshots.push(name);
   }
@@ -146,6 +150,7 @@ async function run() {
       title: document.querySelector('#ranking-title').value,
       rows: Array.from(document.querySelectorAll('.tier-row'), row => ({
         name: row.querySelector('.tier-label strong').textContent,
+        color: row.querySelector('.tier-label').style.getPropertyValue('--tier-color'),
         items: Array.from(row.querySelectorAll('.card-name'), item => item.textContent)
       })),
       pool: Array.from(document.querySelectorAll('#candidate-pool .card-name'), item => item.textContent)
@@ -153,7 +158,7 @@ async function run() {
   }
   async function assertDefault(page) {
     assert.deepEqual(await snapshot(page), expectedDefault);
-    assert.equal(await cardCount(page), 10);
+    assert.equal(await cardCount(page), expectedDefault.rows.reduce((count, row) => count + row.items.length, 0));
     assert.equal(await page.locator('#pool-count').textContent(), '0');
   }
   async function assertPresentation(page) {
@@ -173,7 +178,7 @@ async function run() {
   async function poolFixture(page) {
     // Keep motion tests independent of product defaults. Import a separate,
     // explicit all-pool fixture through the same confirmed JSON UI as users.
-    const fixture = require(path.join(root, 'home', 'assets', 'ranking-model.js')).createDefaultState();
+    const fixture = require(path.join(site, 'assets', 'ranking-model.js')).createDefaultState();
     fixture.pool = fixture.rows.flatMap(row => row.itemIds).concat(fixture.pool);
     fixture.rows.forEach(row => { row.itemIds = []; });
     await importJson(page, fixture, 'interaction-all-pool.json');
@@ -199,7 +204,7 @@ async function run() {
       await shot(page, 'desktop-default-presentation.png');
     });
     const defaultTitle = expectedDefault.title;
-    const defaultCount = 10;
+    const defaultCount = expectedDefault.rows.reduce((count, row) => count + row.items.length, 0);
     await check('explicit editing toggle and imported all-pool fixture support desktop editing layout', async () => {
       await enterEditor(page);
       await poolFixture(page);
@@ -234,6 +239,7 @@ async function run() {
       assert.deepEqual(await cardIds(page, firstRow), [first, second]);
       await itemDialog(page, second);
       await page.locator('#item-previous').click();
+      await page.locator('#item-save').click();
       assert.deepEqual(await cardIds(page, firstRow), [second, first]);
       if (await page.locator('#item-dialog').isVisible()) await page.keyboard.press('Escape');
       assert.equal(await cardCount(page), defaultCount);
@@ -249,16 +255,16 @@ async function run() {
       await page.locator('#row-name').fill('拉不出来');
       await page.locator('#row-color').evaluate(element => { element.value = '#5baa7a'; element.dispatchEvent(new Event('input', { bubbles: true })); });
       await page.locator('#row-save').click();
-      assert.equal(await page.locator('.tier-row').count(), 6);
+      assert.equal(await page.locator('.tier-row').count(), expectedDefault.rows.length + 1);
       const last = page.locator('.tier-row').last();
       const addedId = await last.getAttribute('data-row-id');
       assert((await last.textContent()).includes('拉不出来'));
       await last.locator('.row-settings').click(); await page.locator('#row-up').click();
-      assert.equal(await page.locator('.tier-row').nth(4).getAttribute('data-row-id'), addedId);
+      assert.equal(await page.locator('.tier-row').nth(expectedDefault.rows.length - 1).getAttribute('data-row-id'), addedId);
       if (await page.locator('#row-dialog').isVisible()) await page.keyboard.press('Escape');
       const occupiedIds = await cardIds(page, firstRow);
       await row.locator('.row-settings').click(); await page.locator('#row-delete').click();
-      assert.equal(await page.locator('.tier-row').count(), 5);
+      assert.equal(await page.locator('.tier-row').count(), expectedDefault.rows.length);
       assert.equal(await cardCount(page), defaultCount);
       const pool = await cardIds(page, 'pool');
       for (const id of occupiedIds) assert(pool.includes(id), 'Deleting occupied row must return every item to the pool');
@@ -329,7 +335,7 @@ async function run() {
       await page.locator('#image-files').setInputFiles(['one', 'two'].map(name => ({ name: `${name}.png`, mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })));
       await page.waitForFunction(count => document.querySelectorAll('.rank-card').length === count, before + 2);
       const json = JSON.parse((await download(page, '#json-export', 'images-roundtrip.json')).toString('utf8'));
-      const images = Object.values(json.items).filter(item => item.image);
+      const images = Object.values(json.items).filter(item => item.image && ['one', 'two'].includes(item.name));
       assert.equal(images.length, 2);
       const sizes = await page.evaluate(async data => Promise.all(data.map(async item => {
         const image = await createImageBitmap(await (await fetch(item.image)).blob());
@@ -373,7 +379,7 @@ async function run() {
     });
     await check('JSON backup downloads, round-trips, and rejects invalid data atomically', async () => {
       preserved = JSON.parse((await download(page, '#json-export', 'ranking-backup.json')).toString('utf8'));
-      assert.equal(preserved.version, 1);
+      assert.equal(preserved.version, 3); assert.equal(preserved.templateId, 'food');
       assert.equal(preserved.title, '我的可恢复排行');
       await page.locator('#ranking-title').fill('临时修改'); await page.locator('#ranking-title').blur();
       await importJson(page, preserved);
@@ -409,7 +415,9 @@ async function run() {
       let from = await handle.boundingBox(), to = await target.boundingBox();
       assert(from && to);
       await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
-      await page.mouse.move(to.x + Math.min(40, to.width / 2), to.y + Math.min(40, to.height / 2), { steps: 18 }); await page.waitForTimeout(70); await page.mouse.up(); await page.waitForTimeout(100);
+      await page.mouse.move(to.x + Math.min(40, to.width / 2), to.y + Math.min(40, to.height / 2), { steps: 18 }); await page.waitForTimeout(70); await page.mouse.up();
+      // The editor intentionally ignores card activation for 450ms after dragging.
+      await page.waitForTimeout(500);
       const targetId = await page.locator('.tier-row').first().getAttribute('data-row-id');
       await page.waitForFunction(({ itemId, targetId }) => Boolean(document.querySelector(`.item-list[data-zone="${targetId}"] .rank-card[data-item-id="${itemId}"]`)), { itemId, targetId });
       const secondId = await firstId(page);
@@ -440,14 +448,14 @@ async function run() {
       assert(overflow <= 1, 'Desktop must not overflow horizontally');
     });
     await check('long Chinese title, all rows, long labels, and many items export a decoded PNG', async () => {
-      const stress = require(path.join(root, 'home', 'assets', 'ranking-model.js')).createDefaultState();
+      const stress = require(path.join(site, 'assets', 'ranking-model.js')).createDefaultState();
       stress.title = '长标题自动换行验收：' + '美食排行与个人口味记录'.repeat(7);
-      stress.items = {}; stress.pool = [];
+      stress.items = {}; stress.pool = []; stress.rows = stress.rows.slice(0, 5);
       stress.rows.forEach((row, rowIndex) => {
         row.name = ['夯中之夯', '顶级', '人上人', 'NPC', '拉中之拉'][rowIndex]; row.itemIds = [];
         for (let index = 0; index < 25; index++) {
           const id = `stress-${rowIndex}-${index}`;
-          stress.items[id] = { id, name: `${rowIndex + 1}-${index + 1} 中文名称自动换行 ${'长名称与Emoji🍜'.repeat(5)}`, art: index % 3 ? null : 'noodles', image: null };
+          stress.items[id] = { id, name: `${rowIndex + 1}-${index + 1} 中文名称自动换行 ${'长名称与Emoji🍜'.repeat(5)}`, art: index % 3 ? null : 'noodles', image: null, crop: null };
           row.itemIds.push(id);
         }
       });
@@ -456,7 +464,7 @@ async function run() {
       const png = await download(page, '#png-export', 'ranking-long-export.png');
       const size = dimensions(png);
       assert(size.width >= 1000); assert(size.height > size.width, 'Long board should export its full height');
-      const exportLimits = require(path.join(root, 'home', 'assets', 'ranking-export.js'));
+      const exportLimits = require(path.join(site, 'assets', 'ranking-export.js'));
       assert(size.width * size.height <= exportLimits.MAX_PIXELS, 'Export must stay within the planned memory cap');
       assert(size.width <= exportLimits.MAX_SIDE && size.height <= exportLimits.MAX_SIDE);
       const decoded = await page.evaluate(async ({ base64, colors }) => {
@@ -467,7 +475,10 @@ async function run() {
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         const targets = colors.map(hex => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]);
         const counts = targets.map(() => 0), extents = targets.map(() => [Infinity, -1]);
+        // Inspect the clear left strip of each tier label: photo pixels elsewhere may coincidentally match a label color.
         for (let i = 0; i < data.length; i += 4) {
+          const pixelX = (i / 4) % canvas.width;
+          if (pixelX < canvas.width * 0.025 || pixelX > canvas.width * 0.04) continue;
           targets.forEach((color, at) => { if (data[i] === color[0] && data[i + 1] === color[1] && data[i + 2] === color[2] && data[i + 3] === 255) { counts[at]++; extents[at][0] = Math.min(extents[at][0], Math.floor(i / 4 / canvas.width)); extents[at][1] = Math.max(extents[at][1], Math.floor(i / 4 / canvas.width)); } });
         }
         return { width: image.width, height: image.height, counts, extents };
@@ -516,7 +527,8 @@ async function run() {
       // CDP sends touch input to this isolated test page; this does not operate a
       // user browser. Physical devices still need a manual feel/accessibility check.
       const id = await firstId(mobile);
-      const handle = mobile.locator(`.rank-card[data-item-id="${id}"] .drag-handle`);
+      // Presentation hides the drag icon; the whole card remains draggable.
+      const handle = mobile.locator(`.rank-card[data-item-id="${id}"] .card-main`);
       await handle.scrollIntoViewIfNeeded();
       const from = await handle.boundingBox();
       const target = mobile.locator('.tier-row').last().locator('.item-list');

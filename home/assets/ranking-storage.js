@@ -25,6 +25,12 @@
     const dbName = options.dbName || 'xieyuqing-ranking-v1';
     const storeName = 'rankings';
     const key = 'current';
+    const templateIds = Model.TEMPLATES ? Object.keys(Model.TEMPLATES) : ['food', 'sport'];
+    function templateKey(templateId) {
+      if (typeof templateId !== 'string' || !templateIds.includes(templateId))
+        throw new StorageError('template', '未知排行模板，原存档仍保留，请刷新页面后重试。');
+      return 'template:' + templateId;
+    }
     let connection = null;
     let opening = null;
     let queue = Promise.resolve();
@@ -70,16 +76,19 @@
       const db = await open();
       return new Promise((resolve, reject) => {
         let transaction;
-        let request;
+        let requests;
         let requestError;
         try {
           transaction = db.transaction(storeName, mode);
-          request = action(transaction.objectStore(storeName));
-          request.onerror = () => { requestError = request.error; };
-          transaction.oncomplete = () => resolve(request.result);
+          const result = action(transaction.objectStore(storeName));
+          requests = Array.isArray(result) ? result : [result];
+          requests.forEach(request => { request.onerror = () => { if (!requestError) requestError = request.error; }; });
+          transaction.oncomplete = () => resolve(requests[0].result);
           transaction.onerror = () => reject(storageError(requestError || transaction.error));
           transaction.onabort = () => reject(storageError(requestError || transaction.error));
         } catch (error) {
+          // A synchronous error on the second write must also roll back the first write.
+          if (transaction) { try { transaction.abort(); } catch (_) { /* Already inactive or aborted. */ } }
           if (error && error.name === 'InvalidStateError') { connection = null; opening = null; }
           reject(storageError(error));
         }
@@ -87,9 +96,22 @@
     }
     return {
       save(state) {
-        let snapshot;
-        try { snapshot = Model.serialize(state); } catch (error) { return Promise.reject(error); }
-        return enqueue(() => transact('readwrite', store => store.put(snapshot, key)));
+        let snapshot, destination;
+        try {
+          const validated = Model.validateState(state);
+          destination = templateKey(validated.templateId || 'food');
+          snapshot = Model.serialize(validated);
+        } catch (error) { return Promise.reject(error); }
+        return enqueue(() => transact('readwrite', store => [store.put(snapshot, key), store.put(snapshot, destination)]));
+      },
+      saveTemplate(state) {
+        let snapshot, destination;
+        try {
+          const validated = Model.validateState(state);
+          destination = templateKey(validated.templateId || 'food');
+          snapshot = Model.serialize(validated);
+        } catch (error) { return Promise.reject(error); }
+        return enqueue(() => transact('readwrite', store => store.put(snapshot, destination)));
       },
       load() {
         return enqueue(async () => {
@@ -99,7 +121,24 @@
           catch (error) { throw new StorageError('corrupt', '已保存的排行无法读取，原记录仍保留。可导入其他 JSON 备份，或确认重置。' + error.message, error); }
         });
       },
-      clear() { return enqueue(() => transact('readwrite', store => store.delete(key))); }
+      loadTemplate(templateId) {
+        let destination;
+        try { destination = templateKey(templateId); } catch (error) { return Promise.reject(error); }
+        return enqueue(async () => {
+          const snapshot = await transact('readonly', store => store.get(destination));
+          if (snapshot === undefined) return null;
+          try {
+            const restored = Model.deserialize(snapshot);
+            if ((restored.templateId || 'food') !== templateId) throw new Error('模板标识与存档位置不一致。');
+            return restored;
+          } catch (error) {
+            throw new StorageError('corrupt', '此模板存档无法读取，原记录仍保留，未自动覆盖。请导出 JSON 备份，或确认重置此模板。' + error.message, error);
+          }
+        });
+      },
+      clear() {
+        return enqueue(() => transact('readwrite', store => [key, ...templateIds.map(templateKey)].map(entry => store.delete(entry))));
+      }
     };
   }
   return { createStore, StorageError };

@@ -1,28 +1,4 @@
 :root {
-  color-scheme: dark;
-  --paper: #090f19;
-  --white: #101c2b;
-  --ink: #dce7ef;
-  --muted: #9cabbc;
-  --accent: #6bd8cb;
-  --accent-hover: #8ce6db;
-  --line: #253548;
-  --soft: #142335;
-  --surface: #0e1825;
-  --grid: #86b5cb0a;
-  --feature: #101d2b;
-  --feature-ink: #e2ecf4;
-  --feature-muted: #a4b7c7;
-  --feature-accent: #75d9cd;
-  --filter: #133139;
-  --filter-line: #335e64;
-  --quote: #112a32;
-  --table-heading: #192b3b;
-  --table-stripe: #ffffff03;
-  --serif: "Segoe UI", "Microsoft YaHei", sans-serif;
-  --mono: Consolas, "Liberation Mono", monospace;
-}
-:root[data-theme="light"] {
   color-scheme: light;
   --paper: #f7f5ee;
   --white: #fffef9;
@@ -44,6 +20,30 @@
   --table-heading: #e8ecdf;
   --table-stripe: #fffef650;
   --serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", Georgia, serif;
+  --mono: Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #090f19;
+  --white: #101c2b;
+  --ink: #dce7ef;
+  --muted: #9cabbc;
+  --accent: #6bd8cb;
+  --accent-hover: #8ce6db;
+  --line: #253548;
+  --soft: #142335;
+  --surface: #0e1825;
+  --grid: #86b5cb0a;
+  --feature: #101d2b;
+  --feature-ink: #e2ecf4;
+  --feature-muted: #a4b7c7;
+  --feature-accent: #75d9cd;
+  --filter: #133139;
+  --filter-line: #335e64;
+  --quote: #112a32;
+  --table-heading: #192b3b;
+  --table-stripe: #ffffff03;
+  --serif: "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -366,7 +366,7 @@ h1, h2 { font-family: var(--serif); }
   * { transition: none !important; }
 }
 @media print {
-  :root, :root[data-theme="light"] { color-scheme: light; --paper: white; --ink: black; --muted: #555; --line: #ccc; --soft: #eee; --surface: white; --white: white; --accent: black; --quote: #eee; --table-heading: #eee; --table-stripe: white; --feature: white; --feature-ink: black; --feature-muted: #555; --feature-accent: black; }
+  :root, :root[data-theme="light"], :root[data-theme="dark"] { color-scheme: light; --paper: white; --ink: black; --muted: #555; --line: #ccc; --soft: #eee; --surface: white; --white: white; --accent: black; --quote: #eee; --table-heading: #eee; --table-stripe: white; --feature: white; --feature-ink: black; --feature-muted: #555; --feature-accent: black; }
   body { color: black; background: white; font-size: 11pt; }
   .container { width: 100%; max-width: none; }
   .site-nav, .theme-toggle, .back-link, .site-footer, .skip-link, .toc-controls, .article-toc, .reading-progress, .article-end, .next-reading { display: none; }

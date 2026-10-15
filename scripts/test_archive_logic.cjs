@@ -52,8 +52,9 @@ for (const name of Object.keys(generated)) {
   assert.equal(ui.visible().length, 0); assert.equal(ui.empty.hidden, false); assert.equal(ui.pager.hidden, true);
   ui.reset.emit('click'); assert.equal(ui.visible().length, Math.min(12, ui.cards.length));
   checks.push(`${name}: empty state and clear reset`);
-  ui.theme.emit('click'); assert.equal(ui.document.documentElement.dataset.theme, 'light');
+  assert.equal(ui.document.documentElement.dataset.theme, 'light');
   ui.theme.emit('click'); assert.equal(ui.document.documentElement.dataset.theme, 'dark');
+  ui.theme.emit('click'); assert.equal(ui.document.documentElement.dataset.theme, 'light');
   checks.push(`${name}: dark/light toggle`);
   if (ui.year.options.some(x => x.value === '2024')) {
     ui.year.value = '2024'; ui.year.emit('change');

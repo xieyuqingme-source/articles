@@ -45,6 +45,10 @@ jobs:
         run: python scripts/test_game_routes.py
       - name: Check ranking model, persistence and export layout
         run: node --test scripts/test_ranking_logic.cjs
+      - name: Check local image normalization and crop geometry
+        run: node --test scripts/test_ranking_images.cjs
+      - name: Check theme preference and system fallback
+        run: node scripts/test_theme_defaults.cjs
       - name: Check disabled Waline integration
         run: node scripts/test_waline_logic.mjs
       - name: Check reading table of contents

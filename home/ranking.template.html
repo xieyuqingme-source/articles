@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,38 +9,42 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="从夯到拉 · 谢雨卿的小游戏">
   <meta property="og:url" content="{{site_url}}/game/ranking/">
-  <script>try { if (localStorage.getItem("xieyuqing-blog-theme") === "light") document.documentElement.dataset.theme = "light"; } catch (_) {}</script>
+  <script>(() => { let theme = "light", saved; try { saved = localStorage.getItem("xieyuqing-blog-theme"); } catch (_) {} if (saved === "light" || saved === "dark") theme = saved; else try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark"; } catch (_) {} document.documentElement.dataset.theme = theme; })();</script>
   <link rel="stylesheet" href="/assets/portal.css">
   <link rel="stylesheet" href="/assets/game.css">
+  <link rel="stylesheet" href="/assets/ranking-skins.css">
   <script src="/assets/portal.js" defer></script>
   <script src="/assets/ranking-model.js" defer></script>
   <script src="/assets/ranking-storage.js" defer></script>
   <script src="/assets/ranking-export.js" defer></script>
+  <script src="/assets/ranking-images.js" defer></script>
   <script src="/assets/ranking.js" defer></script>
 </head>
-<body class="ranking-page presentation">
+<body class="ranking-page presentation" data-ranking-skin="classic">
   <a class="skip-link" href="#main">跳转到正文</a>
   <header class="site-header container">
     <a class="brand" href="/" aria-label="谢雨卿个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
     <nav class="site-nav" aria-label="主导航"><a href="/">个人主页</a><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/game/" aria-current="page">小游戏 <span lang="en">Games</span></a><a href="/about/">关于我 <span lang="en">About</span></a></nav>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" hidden><span class="theme-label">浅色</span></button>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到深色模式" hidden><span class="theme-label">深色</span></button>
   </header>
   <main id="main" class="container ranking-main">
     <div class="tool-intro editor-only">
       <a class="quiet-link" href="/game/">← 小游戏</a>
       <div class="tool-heading"><div><p class="eyebrow">A LITTLE OPINION · 一点个人偏好</p><h1>从夯到拉</h1></div><p>没有标准答案，<br>只有你的排序。</p></div>
+      <p class="tool-description">供大家娱乐，也欢迎制作自己的「从夯到拉」排行榜，自由添加图片、调整等级，并下载、保存和展示。</p>
     </div>
     <noscript><p class="game-notice">此工具需要 JavaScript 才能编辑和导出；所有图片仅在你的浏览器中处理。</p></noscript>
     <div id="ranking-app" hidden>
       <div class="tool-toolbar">
-        <div class="toolbar-group editor-only"><button class="game-button primary" id="png-export" type="button">下载 PNG <span aria-hidden="true">↓</span></button><label class="scale-label">清晰度 <select id="export-scale"><option value="1">标准 1×</option><option value="2" selected>高清 2×</option></select></label></div>
-        <div class="toolbar-group"><button class="game-button" id="presentation-toggle" type="button" aria-pressed="true">编辑 / 退出展示 · Esc</button><span id="save-status" class="save-status" role="status">正在恢复本地存档…</span></div>
+        <div class="toolbar-group editor-only"><button class="game-button primary" id="png-export" type="button">下载 PNG <span aria-hidden="true">↓</span></button><label class="scale-label">清晰度 <select id="export-scale"><option value="1">标准 1×</option><option value="2" selected>高清 2×</option></select></label><label class="skin-control" for="ranking-skin">排行皮肤 <select id="ranking-skin"><option value="classic">经典款</option><option value="tech">科技版</option></select></label><button class="game-button danger" id="clear-items" type="button">清空全部项目</button></div>
+        <div class="toolbar-group"><label class="skin-control template-control" for="ranking-template">模板 <select id="ranking-template" aria-label="选择排行模板"></select></label><button class="game-button" id="reset-ranking" type="button">恢复默认美食排行</button><button class="game-button" id="undo-clear" type="button" hidden>撤销清空</button><button class="game-button" id="presentation-toggle" type="button" aria-pressed="true">编辑 / 退出展示 · Esc</button><span id="save-status" class="save-status" role="status">正在恢复本地存档…</span></div>
       </div>
+      <p class="skin-explainer editor-only">经典款为浅色表格，科技款随站点明暗变化。图片可从电脑直接拖到等级或待选区，点开项目可换图、缩放和裁切。</p>
       <p id="tool-message" class="game-message" role="status" aria-live="polite" hidden></p>
       <div class="ranking-workspace">
         <section class="board-section" aria-label="排行榜">
-          <div class="board-heading"><label class="title-label editor-only" for="ranking-title">排行榜标题 · 点击修改</label><textarea id="ranking-title" rows="1" maxlength="100" aria-label="排行榜标题">美食从夯到拉</textarea><h2 id="display-title" hidden>美食从夯到拉</h2><p class="board-caption">个人偏好 · 随心排一排</p></div>
-          <p class="operation-hint editor-only">拖动卡片，或点开卡片选择等级。每行「设置」可改名、换色和调整顺序。</p>
+          <div class="board-heading"><label class="title-label editor-only" for="ranking-title">排行榜标题 · 点击修改</label><textarea id="ranking-title" rows="1" maxlength="100" aria-label="排行榜标题">美食从夯到拉</textarea><h2 id="display-title" hidden>美食从夯到拉</h2></div>
+          <p class="operation-hint editor-only">展示时双击卡片编辑、整卡拖动排序；编辑时单击卡片选级或改图。电脑图片可直接拖入等级。每行「设置」可改名、换色和排序。</p>
           <div id="ranking-board" class="ranking-board"></div>
           <button id="add-row" class="add-row editor-only" type="button">＋ 添加等级</button>
         </section>
@@ -49,17 +53,35 @@
           <div class="pool-tools editor-only">
             <form id="add-text-form"><label class="sr-only" for="text-name">新项目名称</label><input id="text-name" maxlength="80" placeholder="添加一个文字项目" required><button class="game-button" type="submit" aria-label="添加文字项目">＋</button></form>
             <label class="upload-button" for="image-files">＋ 导入本地图片（可多选）</label><input class="file-input" id="image-files" type="file" accept="image/png,image/jpeg,image/webp" multiple>
-            <p class="upload-note">PNG / JPG / WebP，每张 ≤ 10 MB。自动缩图，仅本地处理。</p>
+            <p class="upload-note">拖入或选择 PNG / JPG / WebP，每张 ≤ 10 MB。保留缩放原图，可再次裁切，仅本地处理。</p>
           </div>
           <div id="candidate-pool" class="item-list pool-list" data-zone="pool" aria-label="待选项目"></div>
-          <p class="pool-footnote">示例仅供个人演示，不代表权威评价。</p>
+          <p id="template-note" class="pool-footnote">示例仅供个人演示，不代表权威评价。</p>
         </aside>
       </div>
-      <details class="backup-panel editor-only"><summary>备份与使用说明</summary><div class="backup-content"><p>修改自动保存在当前浏览器中。清理网站数据或更换设备会丢失本地存档，重要排行请导出 JSON 备份。多标签页以最后保存为准。</p><div class="toolbar-group"><button class="game-button" id="json-export" type="button">导出 JSON</button><label class="game-button" for="json-file">导入 JSON</label><input class="file-input" id="json-file" type="file" accept="application/json,.json"><button class="game-button danger" id="reset-ranking" type="button">重置默认</button></div><p>键盘：Tab 选中卡片，Enter 打开编辑，选择等级后保存；也可用「向前 / 向后」调整同级顺序。触屏：点卡片选级，或按住右上角拖动柄移动。默认进入展示模式，保留排行榜和待选区，点「编辑 / 退出展示」或按 Esc 编辑。</p><p>PNG 只导出标题、所有等级和已归级项目，不包含待选区与编辑按钮；长名称与长列表自动换行。特别长的榜单会自动降低输出倍率，超过安全尺寸会提示拆分。</p></div></details>
+      <details class="backup-panel editor-only"><summary>备份与使用说明</summary><div class="backup-content"><p>美食和运动模板分别保留内容；切换前确认，恢复默认只作用于当前模板。修改自动保存在当前浏览器中。清理网站数据或更换设备会丢失本地存档，重要排行请导出 JSON 备份。多标签页以最后保存为准。</p><div class="toolbar-group"><button class="game-button" id="json-export" type="button">导出 JSON</button><label class="game-button" for="json-file">导入 JSON</label><input class="file-input" id="json-file" type="file" accept="application/json,.json"></div><p>键盘：Tab 选中卡片，Enter 或空格打开编辑，选择等级后保存；也可用「向前 / 向后」调整同级顺序。展示时：双击或双点卡片编辑，按住整张卡片拖动；非卡片区域仍可滚动页面。编辑时：单击卡片编辑，触屏按右上角拖动柄移动。默认进入展示模式，点「编辑 / 退出展示」或按 Esc 进入完整编辑。</p><p>PNG 只导出标题、所有等级和已归级项目，不包含待选区与编辑按钮；长名称与长列表自动换行。特别长的榜单会自动降低输出倍率，超过安全尺寸会提示拆分。</p></div></details>
     </div>
   </main>
   <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章</a><a href="/projects/">作品</a><a href="/game/">小游戏</a><a href="/about/">关于我</a></div></footer>
-  <dialog id="item-dialog" class="game-dialog" aria-labelledby="item-dialog-title"><form id="item-edit-form"><div class="dialog-heading"><h2 id="item-dialog-title">编辑项目</h2><button class="close-button" type="button" data-close="item-dialog" aria-label="关闭项目编辑">×</button></div><label for="item-name">项目名称</label><input id="item-name" maxlength="80" required><label for="item-target">放到哪里</label><select id="item-target"></select><div class="dialog-order"><span>在当前等级内排序</span><button class="game-button" id="item-previous" type="button">向前</button><button class="game-button" id="item-next" type="button">向后</button></div><div class="dialog-actions"><button class="game-button danger" id="item-delete" type="button">删除项目</button><button class="game-button primary" id="item-save" type="submit">保存并移动</button></div><p class="dialog-note">移动到其他等级时排在末尾；删除项目需要确认。</p></form></dialog>
+  <dialog id="item-dialog" class="game-dialog image-item-dialog" aria-labelledby="item-dialog-title">
+    <form id="item-edit-form">
+      <div class="dialog-heading"><h2 id="item-dialog-title">编辑项目</h2><button class="close-button" type="button" data-close="item-dialog" aria-label="取消并关闭项目编辑">×</button></div>
+      <label for="item-name">项目名称</label><input id="item-name" maxlength="80" required>
+      <section class="image-editor" aria-label="项目图片与裁切">
+        <label class="image-editor-label" for="crop-preview">图片预览 · 正方形裁切</label>
+        <canvas id="crop-preview" width="320" height="320" tabindex="0" aria-label="裁切预览，可拖动定位；方向键微调，Shift加速"></canvas>
+        <p id="crop-status" class="crop-status" role="status">添加图片后可拖动定位和缩放。</p>
+        <div class="crop-zoom-control"><label for="crop-zoom">缩放</label><input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1"><output id="crop-zoom-value" for="crop-zoom">1.00×</output></div>
+        <div class="crop-actions"><label class="game-button" for="item-image-file">添加 / 更换图片</label><input class="file-input" id="item-image-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="game-button" id="crop-reset" type="button">重置裁切</button><button class="game-button" id="item-image-remove" type="button">移除图片</button></div>
+        <p class="dialog-note">原图会缩放保留；拖动、方向键或缩放调整裁切，保存后生效。取消不改原项目。</p>
+      </section>
+      <label for="item-target">放到哪里</label><select id="item-target"></select>
+      <div class="dialog-order"><span id="item-position">在当前等级内排序</span><button class="game-button" id="item-previous" type="button">向前</button><button class="game-button" id="item-next" type="button">向后</button></div>
+      <p id="item-error" class="item-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button class="game-button danger" id="item-delete" type="button">删除项目</button><button class="game-button" id="item-cancel" type="button">取消</button><button class="game-button primary" id="item-save" type="submit">保存并移动</button></div>
+      <p class="dialog-note">排序、名称、图片和等级一起保存；删除项目需要确认。</p>
+    </form>
+  </dialog>
   <dialog id="row-dialog" class="game-dialog" aria-labelledby="row-dialog-title"><form id="row-edit-form"><div class="dialog-heading"><h2 id="row-dialog-title">等级设置</h2><button class="close-button" type="button" data-close="row-dialog" aria-label="关闭等级设置">×</button></div><label for="row-name">等级名称</label><input id="row-name" maxlength="30" required><label for="row-color">标签颜色</label><input id="row-color" type="color" value="#f18d83"><div class="dialog-order"><span>调整等级位置</span><button class="game-button" id="row-up" type="button">上移</button><button class="game-button" id="row-down" type="button">下移</button></div><div class="dialog-actions"><button class="game-button danger" id="row-delete" type="button">删除等级</button><button class="game-button primary" id="row-save" type="submit">保存等级</button></div><p class="dialog-note">删除等级后，其中的项目会回到待选区。</p></form></dialog>
 </body>
 </html>

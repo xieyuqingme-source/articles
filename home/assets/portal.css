@@ -1,17 +1,17 @@
 :root {
-  color-scheme: dark;
-  --paper: #090f19; --surface: #0e1825; --ink: #dce7ef; --muted: #9cabbc;
-  --accent: #6bd8cb; --line: #253548; --soft: #142335;
-  --feature: #101d2b; --feature-ink: #e2ecf4; --feature-muted: #a4b7c7; --feature-accent: #75d9cd;
-  --serif: "Segoe UI", "Microsoft YaHei", sans-serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-}
-:root[data-theme="light"] {
   color-scheme: light;
   --paper: #f7f5ee; --surface: #fffef9; --ink: #243d32; --muted: #616e65;
   --accent: #2b604a; --line: #dcded2; --soft: #eeeee4;
   --feature: #204535; --feature-ink: #f9f8ec; --feature-muted: #d0dccd; --feature-accent: #c5d6bc;
   --serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #090f19; --surface: #0e1825; --ink: #dce7ef; --muted: #9cabbc;
+  --accent: #6bd8cb; --line: #253548; --soft: #142335;
+  --feature: #101d2b; --feature-ink: #e2ecf4; --feature-muted: #a4b7c7; --feature-accent: #75d9cd;
+  --serif: "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }

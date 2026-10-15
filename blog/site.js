@@ -3,10 +3,14 @@
 
   const themeButton = document.querySelector("#theme-toggle");
   const themeKey = "xieyuqing-blog-theme";
-  let savedTheme = "dark";
+  let preferredTheme = null;
   try {
-    if (localStorage.getItem(themeKey) === "light") savedTheme = "light";
-  } catch (_) { /* Theme storage is optional; all page features still work. */ }
+    const saved = localStorage.getItem(themeKey);
+    if (saved === "light" || saved === "dark") preferredTheme = saved;
+  } catch (_) { /* System preference still works when storage is unavailable. */ }
+  let systemTheme = null;
+  try { systemTheme = window.matchMedia("(prefers-color-scheme: dark)"); } catch (_) {}
+  const initialTheme = preferredTheme || (systemTheme && systemTheme.matches ? "dark" : "light");
 
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
@@ -19,9 +23,17 @@
       themeButton.hidden = false;
     }
   }
-  applyTheme(savedTheme);
+  applyTheme(initialTheme);
+  const followSystem = (event) => {
+    if (!preferredTheme) applyTheme(event.matches ? "dark" : "light");
+  };
+  if (systemTheme) {
+    if (systemTheme.addEventListener) systemTheme.addEventListener("change", followSystem);
+    else if (systemTheme.addListener) systemTheme.addListener(followSystem);
+  }
   if (themeButton) themeButton.addEventListener("click", () => {
     const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    preferredTheme = theme;
     applyTheme(theme);
     try { localStorage.setItem(themeKey, theme); } catch (_) { /* Keep the switch usable without storage. */ }
   });

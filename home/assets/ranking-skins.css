@@ -1,0 +1,192 @@
+/* Ranking skins are independent of the site's light/dark theme.
+   Load after game.css. Tier colours always come from the saved model. */
+.ranking-page .skin-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: .73rem;
+}
+.ranking-page .skin-control select {
+  min-height: 36px;
+  padding: 6px 25px 6px 9px;
+  font-size: .73rem;
+}
+.ranking-page .skin-explainer {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: .68rem;
+  line-height: 1.65;
+}
+
+/* Classic is a light spreadsheet in either site theme. These variables stay
+   inside the tool, its dialogs and drag previews; the site theme is unchanged. */
+body[data-ranking-skin="classic"] .ranking-main,
+body[data-ranking-skin="classic"] .game-dialog,
+body[data-ranking-skin="classic"] .ranking-board,
+body[data-ranking-skin="classic"] .rank-card,
+body[data-ranking-skin="classic"].presentation {
+  color-scheme: light;
+  --paper: #f7f5ee;
+  --surface: #ffffff;
+  --ink: #171717;
+  --muted: #626262;
+  --accent: #2b604a;
+  --line: #262626;
+  --soft: #eeeeee;
+  color: var(--ink);
+}
+body[data-ranking-skin="classic"] .ranking-main {
+  margin-top: 24px;
+  padding: 24px 22px 32px;
+  border-radius: 0;
+  background: var(--paper);
+}
+body[data-ranking-skin="classic"] .tool-intro { margin-bottom: 22px; }
+body[data-ranking-skin="classic"] .tool-heading { margin-top: 18px; }
+body[data-ranking-skin="classic"] .tool-heading h1 { color: var(--ink); }
+body[data-ranking-skin="classic"] .tool-toolbar { margin-bottom: 16px; }
+body[data-ranking-skin="classic"] .game-button,
+body[data-ranking-skin="classic"] .upload-button {
+  gap: 8px;
+  border-radius: 4px;
+}
+body[data-ranking-skin="classic"] .game-button.danger { color: #ad3630; }
+body[data-ranking-skin="classic"] .item-error,
+body[data-ranking-skin="classic"] .crop-status[data-error="true"],
+body[data-ranking-skin="classic"] .save-status[data-failed="true"] { color: #a52f2c; }
+body[data-ranking-skin="classic"] .board-heading { padding-block: 12px 18px; }
+body[data-ranking-skin="classic"] .ranking-board {
+  border: 2px solid var(--line);
+  border-radius: 0;
+  background: #f3f3f3;
+}
+body[data-ranking-skin="classic"] .tier-row {
+  grid-template-columns: 92px minmax(0, 1fr);
+  min-height: 112px;
+  background: #f3f3f3;
+}
+body[data-ranking-skin="classic"] .tier-row + .tier-row {
+  border-top: 2px solid var(--line);
+}
+body[data-ranking-skin="classic"] .tier-label {
+  gap: 6px;
+  padding-block: 8px;
+  border-right: 2px solid var(--line);
+  color: #171717;
+}
+body[data-ranking-skin="classic"] .tier-label strong {
+  font-size: 1.18rem;
+  font-weight: 750;
+}
+body[data-ranking-skin="classic"] .board-section .item-list {
+  min-height: 110px;
+  padding: 6px 8px;
+  gap: 8px;
+}
+body[data-ranking-skin="classic"] .rank-card {
+  flex-basis: 76px;
+  width: 76px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body[data-ranking-skin="classic"] .card-main { border-radius: 0; }
+body[data-ranking-skin="classic"] .card-art {
+  border-radius: 0;
+  background: transparent;
+}
+body[data-ranking-skin="classic"] .card-name {
+  padding: 4px 2px;
+  color: #171717;
+  font-size: .66rem;
+  line-height: 1.4;
+}
+body[data-ranking-skin="classic"] .drag-handle {
+  color: #171717;
+  background: #ffffffdd;
+  border-radius: 0;
+}
+body[data-ranking-skin="classic"] .card-remove { border-radius: 0; }
+body[data-ranking-skin="classic"] .pool-panel { border-radius: 0; }
+body[data-ranking-skin="classic"] .pool-heading { padding: 14px 13px 11px; }
+body[data-ranking-skin="classic"] .pool-tools { padding: 0 13px 12px; }
+body[data-ranking-skin="classic"] .pool-list { gap: 9px; padding: 12px; }
+body[data-ranking-skin="classic"] .pool-list .rank-card {
+  flex-basis: calc((100% - 9px) / 2);
+  width: calc((100% - 9px) / 2);
+}
+body[data-ranking-skin="classic"] .pool-list .card-name { font-size: .72rem; }
+body[data-ranking-skin="classic"] .game-dialog { box-shadow: 0 24px 80px #0002; }
+body[data-ranking-skin="classic"].presentation { background: var(--paper); }
+body[data-ranking-skin="classic"].presentation .ranking-main {
+  margin-top: 0;
+  padding: 16px 0 32px;
+  border-radius: 0;
+}
+body[data-ranking-skin="classic"].presentation .tool-toolbar { margin-bottom: 4px; }
+body[data-ranking-skin="classic"].presentation .board-heading { padding-top: 0; }
+body[data-ranking-skin="classic"].presentation #display-title { font-weight: 700; }
+
+/* Tech follows the site's own green/navy or green/cream theme. */
+body[data-ranking-skin="tech"] .ranking-board { border-radius: 12px; }
+body[data-ranking-skin="tech"] .board-heading { padding-bottom: 24px; }
+body[data-ranking-skin="tech"] .tier-label { gap: 10px; }
+body[data-ranking-skin="tech"] .rank-card { border-radius: 8px; }
+body[data-ranking-skin="tech"] .card-art { border-radius: 7px 7px 0 0; }
+body[data-ranking-skin="tech"] .pool-panel { border-radius: 12px; }
+body[data-ranking-skin="tech"] .pool-heading {
+  border-top: 2px solid var(--accent);
+  padding-top: 16px;
+}
+body[data-ranking-skin="tech"] .game-dialog { border-radius: 14px; }
+body[data-ranking-skin="tech"] #display-title { color: var(--ink); }
+
+@media (min-width: 761px) and (max-height: 800px) {
+  body[data-ranking-skin="classic"].presentation .tier-row { min-height: 100px; }
+  body[data-ranking-skin="classic"].presentation .board-section .item-list {
+    min-height: 98px;
+    padding: 6px 8px;
+    gap: 7px;
+  }
+  body[data-ranking-skin="classic"].presentation .board-section .rank-card {
+    flex-basis: 64px;
+    width: 64px;
+  }
+  body[data-ranking-skin="classic"].presentation .board-heading { padding-bottom: 14px; }
+}
+@media (max-width: 1050px) {
+  body[data-ranking-skin="classic"] .tier-row { grid-template-columns: 80px minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .ranking-page .skin-explainer { max-width: 42em; }
+  body[data-ranking-skin="classic"] .ranking-main { padding-inline: 14px; }
+  body[data-ranking-skin="classic"] .tier-row {
+    grid-template-columns: 70px minmax(0, 1fr);
+    min-height: 104px;
+  }
+  body[data-ranking-skin="classic"] .tier-label strong { font-size: 1rem; }
+  body[data-ranking-skin="classic"] .board-section .item-list {
+    min-height: 102px;
+    padding: 6px;
+    gap: 7px;
+  }
+  body[data-ranking-skin="classic"] .rank-card { flex-basis: 68px; width: 68px; }
+  body[data-ranking-skin="classic"] .pool-list { gap: 10px; }
+  body[data-ranking-skin="classic"] .pool-list .rank-card {
+    flex-basis: calc((100% - 30px) / 4);
+    width: calc((100% - 30px) / 4);
+  }
+  body[data-ranking-skin="classic"].presentation .ranking-main { padding-inline: 0; }
+}
+@media (max-width: 430px) {
+  body[data-ranking-skin="classic"] .ranking-main { padding-inline: 10px; }
+  body[data-ranking-skin="classic"] .tier-row { grid-template-columns: 62px minmax(0, 1fr); }
+  body[data-ranking-skin="classic"] .tier-label { padding-inline: 4px; }
+  body[data-ranking-skin="classic"] .rank-card { flex-basis: 62px; width: 62px; }
+  body[data-ranking-skin="classic"] .pool-list .rank-card {
+    flex-basis: calc((100% - 20px) / 3);
+    width: calc((100% - 20px) / 3);
+  }
+}

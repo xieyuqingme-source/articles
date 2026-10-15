@@ -283,7 +283,7 @@ class Blog:
             link_language = ' lang="en"' if target == "english.html" else ""
             nav.append(f'<a href="{escape(address)}"{current}{link_language}>{label}</a>')
         return f'''<!doctype html>
-<html lang="{language}" data-theme="dark">
+<html lang="{language}" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -295,7 +295,7 @@ class Blog:
   <meta property="og:title" content="{escape(title)}">
   <meta property="og:description" content="{escape(description)}">
   <meta property="og:url" content="{escape(self.canonical(destination))}">
-  <script>try {{ if (localStorage.getItem("xieyuqing-blog-theme") === "light") document.documentElement.dataset.theme = "light"; }} catch (_) {{}}</script>
+  <script>(() => {{ let theme = "light", saved; try {{ saved = localStorage.getItem("xieyuqing-blog-theme"); }} catch (_) {{}} if (saved === "light" || saved === "dark") theme = saved; else try {{ if (window.matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark"; }} catch (_) {{}} document.documentElement.dataset.theme = theme; }})();</script>
   <link rel="stylesheet" href="{escape(self.href('assets/style.css'))}">
   <link rel="alternate" type="application/rss+xml" title="{escape(self.config['title'])}" href="{escape(self.href('feed.xml'))}">
   <script src="{escape(self.href('assets/site.js'))}" defer></script>
@@ -306,7 +306,7 @@ class Blog:
   <header class="site-header container" lang="zh-CN">
     <a class="brand" href="{escape(self.href('index.html'))}"><span class="brand-mark" aria-hidden="true">卿</span><span>{escape(self.config['title'])}<small lang="en">XIE YUQING · CARL</small></span></a>
     <div class="header-actions"><nav class="site-nav" aria-label="导航 / Navigation">{''.join(nav)}</nav>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到浅色模式" title="切换到浅色模式" hidden><span class="theme-icon" aria-hidden="true">◐</span><span class="theme-label">浅色</span></button></div>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到深色模式" title="切换到深色模式" hidden><span class="theme-icon" aria-hidden="true">◐</span><span class="theme-label">深色</span></button></div>
   </header>
   <main id="main" class="container">{body}</main>
   <footer class="site-footer container" lang="zh-CN">

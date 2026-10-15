@@ -14,7 +14,22 @@ from build_blog import Blog, ROOT
 
 OUTPUT = ROOT / "_site_unified"
 GAME_PAGES = (("game.template.html", "game"), ("ranking.template.html", "game/ranking"))
-GAME_ASSETS = ("game.css", "ranking.js", "ranking-model.js", "ranking-storage.js", "ranking-export.js")
+GAME_ASSETS = ("game.css", "ranking-skins.css", "ranking.js", "ranking-model.js", "ranking-storage.js", "ranking-export.js", "ranking-images.js")
+GAME_FOOD_ASSETS = ("hotpot.webp", "noodles.webp", "dumpling.webp", "burger.webp", "watermelon.webp",
+                    "chicken.webp", "sushi.webp", "pizza.webp", "cake.webp", "tea.webp",
+                    "mianyang-rice-noodles.webp", "jiaxing-zongzi.webp", "houttuynia.webp", "frozen-dumplings.webp",
+                    "douzhi.webp", "durian.webp", "loofah-noodles.webp", "mooncake.webp",
+                    "pea-mince-noodles.webp", "handmade-dumplings.webp",
+                    "japanese-ramen.webp", "egg-noodles.webp", "bak-kut-teh.webp", "dongpo-pork.webp",
+                    "sea-intestine-rice.webp", "eight-treasure-tofu.webp", "vietnamese-chicken-noodles.webp",
+                    "pad-krapow-rice.webp", "egg-tart.webp", "barbecue.webp", "lamb-shumai.webp",
+                    "zhejiang-dry-noodles.webp", "bread.webp", "lanzhou-noodles.webp",
+                    "beijing-zhajiang-noodles.webp", "west-lake-vinegar-fish.webp",
+                    "sichuan-hotpot.webp", "donkey-burger.webp", "smoked-pork-flatbread.webp")
+GAME_SPORT_ASSETS = ("walking.webp", "hiking.webp", "running.webp", "weight-training.webp",
+                     "swimming.webp", "badminton.webp", "cycling.webp", "football.webp",
+                     "tennis.webp", "table-tennis.webp", "combat-training.webp", "tree-climbing.webp",
+                     "skydiving.webp", "rock-climbing.webp", "diving.webp", "golf.webp", "gaming.webp")
 
 PROJECT_FIELDS = {"id", "title", "english_title", "kind", "summary", "problem", "features",
                   "contribution", "usage", "icon", "source_url", "guide_url"}
@@ -329,12 +344,63 @@ def check_publication_metadata(address):
     return report
 
 
+def linked_directory(path):
+    return path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction())
+
+
+def game_photo_sources(directory, names, label):
+    """Validate a fixed local photo set without writing generated publication files."""
+    relative = "home/assets/" + directory
+    folder = ROOT / relative
+    for parent in (ROOT / "home", ROOT / "home/assets", folder):
+        if linked_directory(parent):
+            raise ValueError(f"Game {label} asset directory symlinks or junctions are not supported: {parent.relative_to(ROOT).as_posix()}")
+    sources = []
+    for name in names:
+        source = folder / name
+        if source.is_symlink():
+            raise ValueError(f"Game {label} asset symlinks are not supported: {relative}/{name}")
+        if not source.is_file():
+            raise ValueError(f"Missing required game {label} photo: {relative}/{name}")
+        sources.append(source)
+    return sources
+
+
+def game_food_sources():
+    return game_photo_sources("foods", GAME_FOOD_ASSETS, "food")
+
+
+def game_sport_sources():
+    return game_photo_sources("sports", GAME_SPORT_ASSETS, "sport")
+
+
+def copy_game_photo_assets(photo_sets):
+    if linked_directory(OUTPUT / "assets"):
+        raise ValueError("Generated game asset directory symlinks or junctions are not supported.")
+    for directory, label, sources in photo_sets:
+        photo_output = OUTPUT / "assets" / directory
+        if linked_directory(photo_output):
+            raise ValueError(f"Generated game {label} asset directory symlinks or junctions are not supported.")
+        photo_output.mkdir(exist_ok=True)
+        for source in sources:
+            destination = photo_output / source.name
+            if linked_directory(destination):
+                raise ValueError(f"Generated game {label} asset symlinks or junctions are not supported: {source.name}")
+            if destination.exists() and not destination.is_file():
+                raise ValueError(f"Generated game {label} photo destination must be a regular file: {source.name}")
+            shutil.copy2(source, destination)
+
+
 def build_site(address):
     address = site_root(address)
     projects = load_projects()
     about_data = load_about()
+    # Every template's complete photo set must pass before any output is generated.
+    photo_sets = (("foods", "food", game_food_sources()), ("sports", "sport", game_sport_sources()))
     if OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / "_site_unified":
         raise ValueError("Unsafe unified output path.")
+    if linked_directory(OUTPUT / "assets"):
+        raise ValueError("Generated game asset directory symlinks or junctions are not supported.")
     if OUTPUT.exists() and any(OUTPUT.iterdir()) and not (OUTPUT / ".generated-by-unified-site").is_file():
         raise ValueError("Keep the existing unrecognized output directory intact.")
     OUTPUT.mkdir(exist_ok=True)
@@ -386,6 +452,7 @@ def build_site(address):
         source = ROOT / "home/assets" / name
         if source.is_symlink(): raise ValueError("Home asset symlinks are not supported.")
         shutil.copy2(source, OUTPUT / "assets" / name)
+    copy_game_photo_assets(photo_sets)
     (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
     sitemap = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/"
