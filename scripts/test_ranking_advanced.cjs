@@ -28,7 +28,7 @@ const sportRows = [
   { name: '拉完了', color: '#a8cf9a', names: ['足球', '网球', '跳伞', '攀岩', '潜水', '高尔夫'] }
 ];
 const defaultRows = [
-  { name: '夯', color: '#f28b82', names: ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '（浙江）干挑面'] },
+  { name: '夯', color: '#f28b82', names: ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '浙江干挑面'] },
   { name: '顶级', color: '#f6b26b', names: ['豌杂面', '手工水饺', '汉堡', '日本拉面', '越南鸡丝米粉', '打抛饭', '羊肉烧麦', '驴肉火烧', '熏肉大饼'] },
   { name: '人上人', color: '#f9d976', names: ['炸鸡', '折耳根', '速冻水饺', '鸡蛋挂面', '烧烤'] },
   { name: 'NPC', color: '#e8e5a0', names: ['寿司', '豆汁', '肉骨茶', '北京杂酱面', '西湖醋鱼'] },
@@ -247,12 +247,17 @@ async function run() {
         boardRadius: board.borderRadius, boardBorder: board.borderTopWidth, boardBorderColor: board.borderTopColor, labelBorder: label.borderRightWidth, labelBorderColor: label.borderRightColor,
         cardRadius: card.borderRadius, cardMainRadius: css('.card-main').borderRadius, cardArtRadius: css('.card-art').borderRadius, cardShadow: card.boxShadow, cardBorder: card.borderTopWidth, cardBackground: card.backgroundColor };
     });
-    assert.equal(style.skin, 'classic'); assert.equal(style.main, 'rgb(247, 245, 238)');
-    if (style.presentation) assert.equal(style.body, 'rgb(247, 245, 238)');
-    assert.equal(style.board, 'rgb(243, 243, 243)'); assert.equal(style.row, 'rgb(243, 243, 243)');
-    assert.equal(style.titleInk, 'rgb(23, 23, 23)'); assert.equal(style.cardInk, 'rgb(23, 23, 23)');
-    assert.equal(style.boardRadius, '0px'); assert.equal(style.boardBorder, '2px'); assert.equal(style.boardBorderColor, 'rgb(38, 38, 38)');
-    assert.equal(style.labelBorder, '2px'); assert.equal(style.labelBorderColor, 'rgb(38, 38, 38)');
+    const dark = style.theme === 'dark';
+    const background = dark ? 'rgb(0, 0, 0)' : 'rgb(247, 245, 238)';
+    const row = dark ? 'rgb(32, 32, 32)' : 'rgb(243, 243, 243)';
+    const ink = dark ? 'rgb(241, 241, 241)' : 'rgb(23, 23, 23)';
+    const border = dark ? 'rgb(136, 136, 136)' : 'rgb(38, 38, 38)';
+    assert.equal(style.skin, 'classic'); assert.equal(style.main, background);
+    if (style.presentation || dark) assert.equal(style.body, background);
+    assert.equal(style.board, row); assert.equal(style.row, row);
+    assert.equal(style.titleInk, ink); assert.equal(style.cardInk, ink);
+    assert.equal(style.boardRadius, '0px'); assert.equal(style.boardBorder, '2px'); assert.equal(style.boardBorderColor, border);
+    assert.equal(style.labelBorder, '2px'); assert.equal(style.labelBorderColor, border);
     assert.equal(style.cardRadius, '0px'); assert.equal(style.cardMainRadius, '0px'); assert.equal(style.cardArtRadius, '0px'); assert.equal(style.cardShadow, 'none'); assert.equal(style.cardBorder, '0px'); assert.equal(style.cardBackground, 'rgba(0, 0, 0, 0)');
     return style;
   }
@@ -276,7 +281,7 @@ async function run() {
       const defaultPng = await pngPixels(page, await download(page, '#png-export', 'default-food-ranking-2x.png')); assert.equal(defaultPng.width, 2400); assert(defaultPng.height > 1000); report.defaultFoodPng = defaultPng;
       await page.locator('#theme-toggle').click(); assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
       report.classicEditorDark = await assertClassicTable(page);
-      const darkPng = await pngPixels(page, await download(page, '#png-export', 'default-food-ranking-2x-dark-theme.png')); assert.equal(darkPng.pixelHash, defaultPng.pixelHash, 'Classic export pixels must be independent of the site theme');
+      const darkPng = await pngPixels(page, await download(page, '#png-export', 'default-food-ranking-2x-dark-theme.png')); assert.notEqual(darkPng.pixelHash, defaultPng.pixelHash, 'Classic export must follow the active site theme'); assert.deepEqual(darkPng.corner, [0, 0, 0, 255]); assert.equal(darkPng.width, defaultPng.width); assert.equal(darkPng.height, defaultPng.height);
       await page.locator('#presentation-toggle').click(); report.classicDefaultDark = await assertClassicTable(page); await shot(page, 'classic-default-dark.png');
       await edit(page); await page.locator('#theme-toggle').click();
       await page.locator('#ranking-skin').selectOption('tech'); report.defaultFoodTechPng = await pngPixels(page, await download(page, '#png-export', 'default-food-ranking-tech-2x.png')); await page.locator('#ranking-skin').selectOption('classic');
@@ -469,12 +474,12 @@ async function run() {
       assert.deepEqual(await state(page, 'idb-crop-restored'), cropped);
       const pixels = await pngPixels(page, await download(page, '#png-export', 'crop-restored-red-only.png')); assert(pixels.red > 10000 && pixels.blue < 30); return pixels;
     });
-    await check('classic spreadsheet and tech skins persist with distinct PNG layout and theme-independent colors', async () => {
+    await check('classic spreadsheet follows site theme while skins retain distinct PNG layouts', async () => {
       await page.locator('#ranking-skin').selectOption('classic');
       await assertClassicTable(page);
       const classic = await pngPixels(page, await download(page, '#png-export', 'classic-skin.png'));
       await page.locator('#theme-toggle').click(); await assertClassicTable(page); await shot(page, 'classic-dark.png');
-      const classicDark = await pngPixels(page, await download(page, '#png-export', 'classic-skin-dark-theme.png')); assert.equal(classicDark.pixelHash, classic.pixelHash);
+      const classicDark = await pngPixels(page, await download(page, '#png-export', 'classic-skin-dark-theme.png')); assert.notEqual(classicDark.pixelHash, classic.pixelHash); assert.deepEqual(classicDark.corner, [0, 0, 0, 255]); assert.equal(classicDark.width, classic.width); assert.equal(classicDark.height, classic.height);
       await page.locator('#theme-toggle').click();
       await page.locator('#ranking-skin').selectOption('tech'); assert.equal(await page.locator('body').getAttribute('data-ranking-skin'), 'tech');
       const techState = await state(page, 'tech-skin'); assert.equal(techState.skin, 'tech'); assert.deepEqual(techState.items, cropped.items);

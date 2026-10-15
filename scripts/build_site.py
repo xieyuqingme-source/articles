@@ -14,7 +14,7 @@ from build_blog import Blog, ROOT
 
 OUTPUT = ROOT / "_site_unified"
 GAME_PAGES = (("game.template.html", "game"), ("ranking.template.html", "game/ranking"))
-GAME_ASSETS = ("game.css", "ranking-skins.css", "ranking.js", "ranking-model.js", "ranking-storage.js", "ranking-export.js", "ranking-images.js")
+GAME_ASSETS = ("game.css", "ranking-skins.css", "ranking.js", "ranking-model.js", "ranking-storage.js", "ranking-export.js", "ranking-images.js", "ranking-view.js")
 GAME_FOOD_ASSETS = ("hotpot.webp", "noodles.webp", "dumpling.webp", "burger.webp", "watermelon.webp",
                     "chicken.webp", "sushi.webp", "pizza.webp", "cake.webp", "tea.webp",
                     "mianyang-rice-noodles.webp", "jiaxing-zongzi.webp", "houttuynia.webp", "frozen-dumplings.webp",

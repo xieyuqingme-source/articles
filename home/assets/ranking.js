@@ -28,6 +28,7 @@
   function failure(error) { message(error.message || '操作未完成，请重试或导出 JSON 备份。', true); }
   function itemFailure(error) { $('item-error').textContent=error.message||'图片编辑未完成，请重试。';$('item-error').hidden=false; }
   const imageEditor=Images.createEditor({canvas:$('crop-preview'),zoomInput:$('crop-zoom'),zoomValue:$('crop-zoom-value'),status:$('crop-status'),resetButton:$('crop-reset'),replaceInput:$('item-image-file'),removeButton:$('item-image-remove'),onBusy(value){imageBusy=value;$('item-save').disabled=value;$('item-delete').disabled=value;$('item-target').disabled=value;updateOrderButtons();},onError:itemFailure});
+  const view = window.RankingView?.create({enterPresentation(){presentation(true);}});
   function autosizeTitle() { title.style.height = 'auto'; title.style.height = title.scrollHeight + 'px'; }
   function setBusy(value) {
     busy = value;
@@ -89,6 +90,7 @@
     $('template-note').textContent=state.templateId==='sport'?'运动示例仅为个人偏好，不构成健康或训练建议。':'示例仅为个人演示，不代表权威评价。';
     $('add-row').disabled = state.rows.length >= M.LIMITS.rows;
     $('clear-items').disabled=Object.keys(state.items).length===0;$('undo-clear').hidden=!undoSnapshot;$('undo-clear').textContent=undoKind==='template'?'撤销切换模板':undoKind==='reset'?'撤销恢复默认':'撤销清空';
+    view?.refresh(state.pool.length);
   }
   function focusCard(id) { document.querySelectorAll('.rank-card').forEach(entry => { if(entry.dataset.itemId===id) entry.querySelector('.card-main').focus({preventScroll:true}); }); }
   function isPresentation() { return document.body.classList.contains('presentation'); }
@@ -163,7 +165,7 @@
   function safeFilename(extension) {return (state.title.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').slice(0,60)||'我的排行')+'.'+extension;}
   $('png-export').addEventListener('click',async()=>{
     if(busy)return;setBusy(true);message('正在生成 PNG，请稍候…');
-    try{const result=await Export.exportRanking(M.validateState(state),{scale:Number($('export-scale').value)});download(result.blob,safeFilename('png'));message('PNG 已生成（'+result.width+' × '+result.height+' 像素'+(result.scale<Number($('export-scale').value)?'，已为长图自动降低倍率':'')+'）。');}
+    try{const result=await Export.exportRanking(M.validateState(state),{scale:Number($('export-scale').value),theme:document.documentElement.dataset.theme});download(result.blob,safeFilename('png'));message('PNG 已生成（'+result.width+' × '+result.height+' 像素'+(result.scale<Number($('export-scale').value)?'，已为长图自动降低倍率':'')+'）。');}
     catch(error){failure(error);}finally{setBusy(false);render();}
   });
   $('json-export').addEventListener('click',()=>run(()=>{download(new Blob([M.serialize(state)],{type:'application/json'}),safeFilename('json'));message('JSON 备份已生成，包含自定义图片与全部项目。');}));
@@ -208,7 +210,7 @@
     finally{setBusy(false);render();}
   });
   $('ranking-skin').addEventListener('change',()=>{if(!busy)run(()=>{M.setSkin(state,$('ranking-skin').value);changed('已切换排行皮肤，站点明暗主题不变。',{preserveUndo:true});});});
-  function presentation(enabled){lastTap=null;document.body.classList.toggle('presentation',enabled);$('presentation-toggle').textContent=enabled?'编辑 / 退出展示 · Esc':'展示模式';$('presentation-toggle').setAttribute('aria-pressed',String(enabled));autosizeTitle();}
+  function presentation(enabled){lastTap=null;document.body.classList.toggle('presentation',enabled);$('presentation-toggle').textContent=enabled?'编辑 / 退出展示 · Esc':'展示模式';$('presentation-toggle').setAttribute('aria-pressed',String(enabled));autosizeTitle();view?.presentation(enabled);}
   $('presentation-toggle').addEventListener('click',()=>presentation(!document.body.classList.contains('presentation')));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('item-dialog').open&&!$('row-dialog').open)presentation(false);});
   async function importFiles(files,target='pool'){
@@ -249,7 +251,8 @@
     const {x,y}=lastPoint;ghost.style.left=(x-36)+'px';ghost.style.top=(y-35)+'px';drop=findDrop(x,y);
     const poolBox=pool.getBoundingClientRect();
     if(x>=poolBox.left&&x<=poolBox.right&&y>=poolBox.top&&y<=poolBox.bottom){if(y<poolBox.top+45)pool.scrollTop-=12;else if(y>poolBox.bottom-45)pool.scrollTop+=12;}
-    if(y<65)window.scrollBy(0,-12);else if(y>window.innerHeight-65)window.scrollBy(0,12);
+    const scrollingBoard=view?.scrollDrag(x,y);
+    if(!scrollingBoard){if(y<65)window.scrollBy(0,-12);else if(y>window.innerHeight-65)window.scrollBy(0,12);}
     raf=requestAnimationFrame(dragFrame);
   }
   app.addEventListener('pointerdown',event=>{

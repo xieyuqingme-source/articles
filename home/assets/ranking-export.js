@@ -14,6 +14,8 @@
     classic: Object.freeze({ background: '#f7f5ee', row: '#f3f3f3', ink: '#171717', title: '#171717', border: '#262626', card: '#eeeeee' }),
     tech: Object.freeze({ background: '#f7f5ee', row: '#fffef9', ink: '#263b2d', title: '#244333', border: '#d4d9cd', card: '#e8ede3' })
   });
+  const CLASSIC_DARK = Object.freeze({ background: '#000000', row: '#202020', ink: '#f1f1f1', title: '#f1f1f1', border: '#888888', card: '#303030' });
+  function paletteFor(skin, theme) { return skin === 'classic' && theme === 'dark' ? CLASSIC_DARK : SKINS[skin]; }
   const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('zh', { granularity: 'grapheme' }) : null;
   function characters(text) { return segmenter ? Array.from(segmenter.segment(text), entry => entry.segment) : Array.from(text); }
   function approximation(text, size) { return characters(text).reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.6 : size), 0); }
@@ -145,7 +147,11 @@
     if (typeof document === 'undefined') throw new Error('PNG 导出需要支持 Canvas 的浏览器。');
     const state = Model.validateState(input);
     const classic = state.skin === 'classic';
-    const palette = SKINS[state.skin];
+    // Theme changes colour only. The data layout and resolution never depend on
+    // screen zoom, fullscreen or viewport dimensions. Explicit theme wins.
+    const theme = options.theme === 'dark' || options.theme === 'light' ? options.theme :
+      document.documentElement && document.documentElement.dataset && document.documentElement.dataset.theme;
+    const palette = paletteFor(state.skin, theme);
     if (document.fonts && document.fonts.ready)
       await timeout(document.fonts.ready, 10000, '等待字体超时，请稍后重试 PNG 导出。');
     const canvas = document.createElement('canvas');
@@ -169,7 +175,7 @@
         context.fillStyle = row.color; context.fillRect(row.x, row.y, row.labelWidth, row.height);
         drawLines(context, row.labelLines, row.x + row.labelWidth / 2,
           row.y + (row.height - row.labelLines.length * row.labelLineHeight) / 2,
-          row.labelSize, row.labelLineHeight, classic && inkFor(row.color) !== '#ffffff' ? palette.ink : inkFor(row.color), 'center', '700');
+          row.labelSize, row.labelLineHeight, classic && inkFor(row.color) !== '#ffffff' ? SKINS.classic.ink : inkFor(row.color), 'center', '700');
         for (const card of row.cards) {
           const item = state.items[card.id];
           const art = item.art ? (Model.BUILTIN_ART || Model.FOOD_ART)[item.art] : null;
@@ -234,5 +240,5 @@
       return Object.assign({ blob }, dimensions);
     } finally { canvas.width = 1; canvas.height = 1; }
   }
-  return { planLayout, outputSize, wrapText, exportRanking, MAX_PIXELS, MAX_SIDE, SKINS };
+  return { planLayout, outputSize, wrapText, exportRanking, MAX_PIXELS, MAX_SIDE, SKINS, CLASSIC_DARK, paletteFor };
 }));

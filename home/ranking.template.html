@@ -18,6 +18,7 @@
   <script src="/assets/ranking-storage.js" defer></script>
   <script src="/assets/ranking-export.js" defer></script>
   <script src="/assets/ranking-images.js" defer></script>
+  <script src="/assets/ranking-view.js" defer></script>
   <script src="/assets/ranking.js" defer></script>
 </head>
 <body class="ranking-page presentation" data-ranking-skin="classic">
@@ -39,15 +40,20 @@
         <div class="toolbar-group editor-only"><button class="game-button primary" id="png-export" type="button">下载 PNG <span aria-hidden="true">↓</span></button><label class="scale-label">清晰度 <select id="export-scale"><option value="1">标准 1×</option><option value="2" selected>高清 2×</option></select></label><label class="skin-control" for="ranking-skin">排行皮肤 <select id="ranking-skin"><option value="classic">经典款</option><option value="tech">科技版</option></select></label><button class="game-button danger" id="clear-items" type="button">清空全部项目</button></div>
         <div class="toolbar-group"><label class="skin-control template-control" for="ranking-template">模板 <select id="ranking-template" aria-label="选择排行模板"></select></label><button class="game-button" id="reset-ranking" type="button">恢复默认美食排行</button><button class="game-button" id="undo-clear" type="button" hidden>撤销清空</button><button class="game-button" id="presentation-toggle" type="button" aria-pressed="true">编辑 / 退出展示 · Esc</button><span id="save-status" class="save-status" role="status">正在恢复本地存档…</span></div>
       </div>
-      <p class="skin-explainer editor-only">经典款为浅色表格，科技款随站点明暗变化。图片可从电脑直接拖到等级或待选区，点开项目可换图、缩放和裁切。</p>
+      <div class="view-toolbar" role="group" aria-label="排行榜查看大小与全屏">
+        <div class="view-zoom-controls"><button class="game-button" id="view-zoom-out" type="button" aria-label="缩小排行榜">−</button><output id="view-zoom-value" aria-live="polite">100%</output><button class="game-button" id="view-zoom-in" type="button" aria-label="放大排行榜">＋</button><button class="game-button" id="view-zoom-reset" type="button">还原</button><button class="game-button" id="view-fit-width" type="button">适应宽度</button></div>
+        <div class="view-mode-controls"><button class="game-button" id="view-board-only" type="button" aria-pressed="false">仅看榜单</button><button class="game-button" id="view-fullscreen" type="button" aria-pressed="false">全屏查看</button></div>
+      </div>
+      <p id="view-status" class="view-note" role="status" hidden></p><p id="view-pool-note" class="view-note" role="status" hidden></p>
+      <p class="skin-explainer editor-only">经典款为清晰表格，科技款为现代卡片，两款都随站点明暗变化。图片可从电脑直接拖到等级或待选区，点开项目可换图、缩放和裁切。</p>
       <p id="tool-message" class="game-message" role="status" aria-live="polite" hidden></p>
       <div class="ranking-workspace">
-        <section class="board-section" aria-label="排行榜">
+        <div id="board-viewport" class="board-viewport" tabindex="0" aria-label="排行榜滚动查看区域"><div id="board-scale-wrap" class="board-scale-wrap"><section id="ranking-canvas" class="board-section" aria-label="排行榜">
           <div class="board-heading"><label class="title-label editor-only" for="ranking-title">排行榜标题 · 点击修改</label><textarea id="ranking-title" rows="1" maxlength="100" aria-label="排行榜标题">美食从夯到拉</textarea><h2 id="display-title" hidden>美食从夯到拉</h2></div>
-          <p class="operation-hint editor-only">展示时双击卡片编辑、整卡拖动排序；编辑时单击卡片选级或改图。电脑图片可直接拖入等级。每行「设置」可改名、换色和排序。</p>
+          <p class="operation-hint editor-only">展示时双击卡片编辑、整卡拖动排序；编辑时单击卡片选级或改图。放大后可在榜单区域滚动，触屏可从等级标签或空白处滑动。电脑图片可直接拖入等级。每行「设置」可改名、换色和排序。</p>
           <div id="ranking-board" class="ranking-board"></div>
           <button id="add-row" class="add-row editor-only" type="button">＋ 添加等级</button>
-        </section>
+        </section></div></div>
         <aside class="pool-panel" aria-labelledby="pool-title">
           <div class="pool-heading"><h2 id="pool-title">待选区 <span id="pool-count">0</span></h2><span class="pool-tag">还没想好，先放这里</span></div>
           <div class="pool-tools editor-only">

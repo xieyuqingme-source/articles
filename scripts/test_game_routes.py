@@ -96,9 +96,10 @@ class GamePublicationTests(unittest.TestCase):
         ranking = Elements((output / "game/ranking/index.html").read_text(encoding="utf-8")).elements
         scripts = [attrs.get("src") for tag, attrs in ranking if tag == "script" and attrs.get("src")]
         styles = [attrs.get("href") for tag, attrs in ranking if tag == "link" and attrs.get("rel") == "stylesheet"]
-        for name in ("ranking-model.js", "ranking-storage.js", "ranking-export.js", "ranking-images.js", "ranking.js"):
+        for name in ("ranking-model.js", "ranking-storage.js", "ranking-export.js", "ranking-images.js", "ranking-view.js", "ranking.js"):
             self.assertIn("/assets/" + name, scripts)
         self.assertLess(scripts.index("/assets/ranking-images.js"), scripts.index("/assets/ranking.js"))
+        self.assertLess(scripts.index("/assets/ranking-view.js"), scripts.index("/assets/ranking.js"))
         for name in ("portal.css", "game.css", "ranking-skins.css"):
             self.assertIn("/assets/" + name, styles)
         self.assertEqual(build_site.GAME_FOOD_ASSETS, EXPECTED_FOODS)

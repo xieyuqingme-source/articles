@@ -30,7 +30,7 @@ const report = { startedAt: new Date().toISOString(), browser: 'isolated headles
 const expectedDefault = {
   title: '美食从夯到拉',
   rows: [
-    { name: '夯', color: '#f28b82', items: ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '（浙江）干挑面'] },
+    { name: '夯', color: '#f28b82', items: ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '浙江干挑面'] },
     { name: '顶级', color: '#f6b26b', items: ['豌杂面', '手工水饺', '汉堡', '日本拉面', '越南鸡丝米粉', '打抛饭', '羊肉烧麦', '驴肉火烧', '熏肉大饼'] },
     { name: '人上人', color: '#f9d976', items: ['炸鸡', '折耳根', '速冻水饺', '鸡蛋挂面', '烧烤'] },
     { name: 'NPC', color: '#e8e5a0', items: ['寿司', '豆汁', '肉骨茶', '北京杂酱面', '西湖醋鱼'] },

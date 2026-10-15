@@ -41,7 +41,7 @@
     'egg-tart': Object.freeze({ name: '蛋挞', emoji: '🥧', bg: '#f6e6c7', photo: '/assets/foods/egg-tart.webp' }),
     barbecue: Object.freeze({ name: '烧烤', emoji: '🍢', bg: '#f3ddc4', photo: '/assets/foods/barbecue.webp' }),
     'lamb-shumai': Object.freeze({ name: '羊肉烧麦', emoji: '🥟', bg: '#f7eed8', photo: '/assets/foods/lamb-shumai.webp' }),
-    'zhejiang-dry-noodles': Object.freeze({ name: '（浙江）干挑面', emoji: '🍜', bg: '#f4e6cf', photo: '/assets/foods/zhejiang-dry-noodles.webp' }),
+    'zhejiang-dry-noodles': Object.freeze({ name: '浙江干挑面', emoji: '🍜', bg: '#f4e6cf', photo: '/assets/foods/zhejiang-dry-noodles.webp' }),
     bread: Object.freeze({ name: '面包', emoji: '🍞', bg: '#f6e6c7', photo: '/assets/foods/bread.webp' }),
     'lanzhou-noodles': Object.freeze({ name: '兰州拉面', emoji: '🍜', bg: '#f4e6cf', photo: '/assets/foods/lanzhou-noodles.webp' }),
     'beijing-zhajiang-noodles': Object.freeze({ name: '北京杂酱面', emoji: '🍜', bg: '#f4e6cf', photo: '/assets/foods/beijing-zhajiang-noodles.webp' }),
@@ -317,7 +317,8 @@
     const image = info.image;
     if (image && art) fail('项目不能同时含自定义图片和示例插画。');
     const crop = legacy ? null : normalizeCrop(value.crop, info);
-    const normalized = { id: itemId, name: text(value.name, LIMITS.name, '项目名称'), image, art, crop };
+    const name = art === 'zhejiang-dry-noodles' && value.name === '（浙江）干挑面' ? FOOD_ART[art].name : value.name;
+    const normalized = { id: itemId, name: text(name, LIMITS.name, '项目名称'), image, art, crop };
     itemImages.set(normalized, info);
     return normalized;
   }

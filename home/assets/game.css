@@ -24,6 +24,27 @@
 .game-message[data-error="true"] { border-color: #d78c75; }
 .ranking-workspace { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 24px; align-items: start; }
 .board-section { min-width: 0; }
+.board-viewport { min-width: 0; width: 100%; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.board-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.board-scale-wrap { position: relative; overflow: clip; }
+#ranking-canvas { transform-origin: 0 0; }
+.view-toolbar, .view-zoom-controls, .view-mode-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.view-toolbar { justify-content: space-between; margin: 0 0 12px; padding: 7px 0; border-bottom: 1px solid var(--line); background: var(--paper); }
+.view-toolbar .game-button { min-height: 34px; padding: 5px 10px; gap: 4px; font-size: .73rem; }
+#view-zoom-value { min-width: 46px; text-align: center; color: var(--ink); font: .75rem ui-monospace, monospace; }
+.view-note { margin: 0 0 10px; color: var(--muted); font-size: .73rem; line-height: 1.6; }
+.view-board-only .ranking-workspace { grid-template-columns: minmax(0,1fr); }
+.view-board-only .pool-panel { display: none; }
+body.ranking-page.view-large .site-header, body.ranking-page.view-large .site-footer { display: none; }
+body.ranking-page.view-large.presentation .ranking-main { width: calc(100% - 32px); max-width: none; margin: 0 auto; padding: 10px 0 20px; }
+.view-large .view-toolbar { position: sticky; top: 0; z-index: 10; }
+.view-large { overflow-anchor: none; }
+.view-large .tool-toolbar { margin-bottom: 4px; }
+@media(max-width:760px) {
+  .view-toolbar { align-items: flex-start; }
+  .view-toolbar .game-button { min-height: 36px; padding-inline: 8px; }
+  body.ranking-page.view-large.presentation .ranking-main { width: calc(100% - 20px); }
+}
 .board-heading { padding: 20px 12px 22px; text-align: center; }
 .title-label { display: block; color: var(--muted); font-size: .65rem; margin-bottom: 6px; }
 #ranking-title { display: block; width: 100%; padding: 5px 12px; border: 1px solid transparent; background: transparent; text-align: center; font: 600 clamp(1.35rem,2.5vw,2rem)/1.5 var(--sans); resize: none; overflow: hidden; overflow-wrap: anywhere; }

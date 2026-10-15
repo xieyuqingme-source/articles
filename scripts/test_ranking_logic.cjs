@@ -68,6 +68,7 @@ function createOldThirtyTwoFoodFixture() {
   delete state.items['food-sichuan-hotpot'];
   state.items['food-hotpot'] = { id: 'food-hotpot', name: '四川火锅', image: null, art: 'hotpot', crop: null };
   state.rows[0].itemIds[0] = 'food-hotpot';
+  state.items['food-zhejiang-dry-noodles'].name = '（浙江）干挑面';
   return state;
 }
 function createOldEightSportFixture() {
@@ -131,7 +132,7 @@ test('defaults match requested title, five tier colors and exact 34-food order w
     ['food-pizza', 'food-cake', 'food-tea', 'food-loofah-noodles', 'food-mooncake', 'food-egg-tart', 'food-bread', 'food-lanzhou-noodles']
   ]);
   assert.deepEqual(state.rows.map(row => row.itemIds.map(id => state.items[id].name)), [
-    ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '（浙江）干挑面'],
+    ['四川火锅', '绵阳米粉', '嘉兴粽子', '东坡肉', '海肠捞饭', '八珍豆腐', '浙江干挑面'],
     ['豌杂面', '手工水饺', '汉堡', '日本拉面', '越南鸡丝米粉', '打抛饭', '羊肉烧麦', '驴肉火烧', '熏肉大饼'],
     ['炸鸡', '折耳根', '速冻水饺', '鸡蛋挂面', '烧烤'],
     ['寿司', '豆汁', '肉骨茶', '北京杂酱面', '西湖醋鱼'],
@@ -164,8 +165,10 @@ test('saved food18 and food32 backups keep old hotpot keys, names, fruit and use
       const validated = Model.validateState(fixture);
       const restored = Model.deserialize(before);
       assert.equal(JSON.stringify(fixture), before);
-      assert.deepEqual(validated, original);
-      assert.deepEqual(restored, original);
+      const expected = clone(original);
+      if (expected.items['food-zhejiang-dry-noodles']) expected.items['food-zhejiang-dry-noodles'].name = '浙江干挑面';
+      assert.deepEqual(validated, expected);
+      assert.deepEqual(restored, expected);
       assert.equal(Object.keys(restored.items).length, order.length);
       assert.equal(restored.items['food-hotpot'].name, hotpotName, 'metadata updates never rename saved items');
       assert.equal(restored.items['food-hotpot'].art, 'hotpot', 'dedicated new hotpot art never replaces saved art');
@@ -178,6 +181,59 @@ test('saved food18 and food32 backups keep old hotpot keys, names, fruit and use
       assertConserved(restored, order.map(key => 'food-' + key));
     }
   }
+});
+
+test('the exact old Zhejiang built-in label migrates on read without rewriting saves or changing custom ranking data', async () => {
+  const original = Model.createDefaultState();
+  const itemId = 'food-zhejiang-dry-noodles';
+  original.items[itemId].name = '（浙江）干挑面';
+  Model.setTitle(original, '我的旧版榜单');
+  Model.setSkin(original, 'tech');
+  const rowId = Model.addRow(original, { name: '保留的自定义等级', color: '#345678' });
+  Model.moveItem(original, itemId, rowId);
+  const photoId = Model.addItem(original, { name: '我的裁切照片', image: pngHeaderFixture(12, 8), crop: { x: 2.5, y: 0.5, size: 7 } }, rowId);
+  for (const fixture of [asVersion1(original), asVersion2(original), clone(original)]) {
+    const before = JSON.stringify(fixture);
+    const expected = clone(original);
+    expected.items[itemId].name = '浙江干挑面';
+    if (fixture.version === 1) {
+      expected.skin = 'classic';
+      Object.values(expected.items).forEach(item => { item.crop = null; });
+    }
+    assert.deepEqual(Model.validateState(fixture), expected);
+    assert.deepEqual(Model.deserialize(before), expected);
+    assert.equal(JSON.stringify(fixture), before, 'reading does not modify the source object');
+    assert.deepEqual(Model.deserialize(Model.serialize(expected)), expected, 'normalized names are stable through roundtrips');
+    const fake = fakeIndexedDB();
+    fake.values.set('current', before);
+    const store = Storage.createStore({ indexedDB: fake });
+    assert.deepEqual(await store.load(), expected);
+    assert.equal(fake.values.get('current'), before, 'reading does not rewrite the stored JSON');
+    assert.equal(fake.writes.length, 0);
+    assert.equal(expected.items[photoId].image, original.items[photoId].image);
+    assert.deepEqual(expected.rows, original.rows, 'all six rows and item positions survive unchanged');
+  }
+});
+
+test('Zhejiang label compatibility preserves custom names, uploaded photos, crops and unrelated matching text', () => {
+  const original = Model.createDefaultState();
+  const itemId = 'food-zhejiang-dry-noodles';
+  Model.updateItem(original, itemId, { name: '我最喜欢的（浙江）干挑面' });
+  const image = pngHeaderFixture(12, 8);
+  const crop = { x: 2.5, y: 0.5, size: 7 };
+  const photoId = Model.addItem(original, { name: '（浙江）干挑面', image, crop }, original.rows[0].id);
+  const textId = Model.addItem(original, { name: '（浙江）干挑面', art: null });
+  Model.updateItem(original, 'food-handmade-dumplings', { name: '（浙江）干挑面' });
+  const before = JSON.stringify(original);
+  const restored = Model.deserialize(before);
+  assert.deepEqual(restored, original);
+  assert.equal(restored.items[itemId].name, '我最喜欢的（浙江）干挑面');
+  assert.equal(restored.items[photoId].name, '（浙江）干挑面');
+  assert.equal(restored.items[photoId].image, image);
+  assert.deepEqual(restored.items[photoId].crop, crop);
+  assert.equal(restored.items[textId].name, '（浙江）干挑面');
+  assert.equal(restored.items['food-handmade-dumplings'].name, '（浙江）干挑面');
+  assert.equal(JSON.stringify(original), before);
 });
 
 test('old 10-food five-tier backups retain old names and uploaded images in both schema versions', () => {

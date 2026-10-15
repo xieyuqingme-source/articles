@@ -19,8 +19,8 @@
   line-height: 1.65;
 }
 
-/* Classic is a light spreadsheet in either site theme. These variables stay
-   inside the tool, its dialogs and drag previews; the site theme is unchanged. */
+/* Classic keeps its spreadsheet layout in both site themes. These variables
+   stay inside the tool, its dialogs and drag previews. */
 body[data-ranking-skin="classic"] .ranking-main,
 body[data-ranking-skin="classic"] .game-dialog,
 body[data-ranking-skin="classic"] .ranking-board,
@@ -34,6 +34,26 @@ body[data-ranking-skin="classic"].presentation {
   --accent: #2b604a;
   --line: #262626;
   --soft: #eeeeee;
+  --classic-row: #f3f3f3;
+  --classic-handle: #ffffffdd;
+  color: var(--ink);
+}
+:root[data-theme="dark"] body[data-ranking-skin="classic"] { background: #000000; }
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .ranking-main,
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .game-dialog,
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .ranking-board,
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .rank-card,
+:root[data-theme="dark"] body[data-ranking-skin="classic"].presentation {
+  color-scheme: dark;
+  --paper: #000000;
+  --surface: #191919;
+  --ink: #f1f1f1;
+  --muted: #b5b5b5;
+  --accent: #8bd8b0;
+  --line: #888888;
+  --soft: #303030;
+  --classic-row: #202020;
+  --classic-handle: #191919dd;
   color: var(--ink);
 }
 body[data-ranking-skin="classic"] .ranking-main {
@@ -55,16 +75,20 @@ body[data-ranking-skin="classic"] .game-button.danger { color: #ad3630; }
 body[data-ranking-skin="classic"] .item-error,
 body[data-ranking-skin="classic"] .crop-status[data-error="true"],
 body[data-ranking-skin="classic"] .save-status[data-failed="true"] { color: #a52f2c; }
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .game-button.danger,
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .item-error,
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .crop-status[data-error="true"],
+:root[data-theme="dark"] body[data-ranking-skin="classic"] .save-status[data-failed="true"] { color: #ffaba6; }
 body[data-ranking-skin="classic"] .board-heading { padding-block: 12px 18px; }
 body[data-ranking-skin="classic"] .ranking-board {
   border: 2px solid var(--line);
   border-radius: 0;
-  background: #f3f3f3;
+  background: var(--classic-row);
 }
 body[data-ranking-skin="classic"] .tier-row {
   grid-template-columns: 92px minmax(0, 1fr);
   min-height: 112px;
-  background: #f3f3f3;
+  background: var(--classic-row);
 }
 body[data-ranking-skin="classic"] .tier-row + .tier-row {
   border-top: 2px solid var(--line);
@@ -99,13 +123,13 @@ body[data-ranking-skin="classic"] .card-art {
 }
 body[data-ranking-skin="classic"] .card-name {
   padding: 4px 2px;
-  color: #171717;
+  color: var(--ink);
   font-size: .66rem;
   line-height: 1.4;
 }
 body[data-ranking-skin="classic"] .drag-handle {
-  color: #171717;
-  background: #ffffffdd;
+  color: var(--ink);
+  background: var(--classic-handle);
   border-radius: 0;
 }
 body[data-ranking-skin="classic"] .card-remove { border-radius: 0; }
