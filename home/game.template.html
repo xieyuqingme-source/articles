@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小游戏 / Games · 谢雨卿</title>
+  <meta name="description" content="在日常的阅读与写作之间，来玩一会儿。从夯到拉，自定义你的趣味排行榜，保存成图片。">
+  <meta name="author" content="Xie Yuqing (Carl)">
+  <link rel="canonical" href="{{site_url}}/game/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="小游戏 / Games · 谢雨卿">
+  <meta property="og:description" content="从夯到拉，排出属于你的榜单。轻巧、自由的浏览器小游戏。">
+  <meta property="og:url" content="{{site_url}}/game/">
+  <script>try { if (localStorage.getItem("xieyuqing-blog-theme") === "light") document.documentElement.dataset.theme = "light"; } catch (_) {}</script>
+  <link rel="stylesheet" href="/assets/portal.css">
+  <script src="/assets/portal.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到正文</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="谢雨卿的个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
+    <nav class="site-nav" aria-label="主导航"><a href="/">个人主页</a><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/game/" aria-current="page">小游戏 <span lang="en">Games</span></a><a href="/about/">关于我 <span lang="en">About</span></a></nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换明暗色模式" hidden><span class="theme-label">浅色</span></button>
+  </header>
+  <main id="main" class="container games-main">
+    <section class="projects-intro" aria-labelledby="games-title">
+      <p class="eyebrow"><span aria-hidden="true"></span> A LITTLE PLAY · 小游戏</p>
+      <h1 id="games-title">来玩一会儿。 <span lang="en">Games</span></h1>
+      <p class="projects-description">把好奇心变成一点小乐趣。</p>
+      <p class="projects-note">在阅读与写作之间，给自己留一个轻松的角落。</p>
+    </section>
+    <article class="game-feature" aria-labelledby="ranking-title">
+      <a class="game-preview" href="/game/ranking/" tabindex="-1" aria-hidden="true">
+        <svg viewBox="0 0 420 280" role="presentation" focusable="false">
+          <rect class="game-board" x="22" y="18" width="376" height="244" rx="16"/>
+          <g class="game-preview-type">
+            <rect x="38" y="36" width="66" height="38" rx="5" fill="#ef9390"/><text x="71" y="61">夯</text>
+            <rect x="38" y="78" width="66" height="38" rx="5" fill="#f0b16e"/><text x="71" y="103">顶级</text>
+            <rect x="38" y="120" width="66" height="38" rx="5" fill="#efd277"/><text x="71" y="145">人上人</text>
+            <rect x="38" y="162" width="66" height="38" rx="5" fill="#e7dc9b"/><text x="71" y="187">NPC</text>
+            <rect x="38" y="204" width="66" height="38" rx="5" fill="#a5cfac"/><text x="71" y="229">拉</text>
+          </g>
+          <g class="game-preview-guides"><path d="M118 76h262M118 118h262M118 160h262M118 202h262"/></g>
+          <g class="game-preview-food" stroke="#60482f" stroke-linecap="round" stroke-linejoin="round">
+            <g transform="translate(130 39)"><path d="M0 17h42l-6 15H6z" fill="#e9dec5" stroke-width="2"/><path d="M5 17c0-9 5-14 15-14s17 5 17 14" fill="#f4c45f" stroke-width="2"/><path d="m13 5-2 10m13-12-2 12m9-9-2 9" fill="none" stroke-width="2"/></g>
+            <g transform="translate(190 39)"><path d="m4 28 15-26 16 26z" fill="#efd17f" stroke-width="2"/><path d="m5 28 29 0" fill="none" stroke="#d78d53" stroke-width="5"/><circle cx="19" cy="12" r="3" fill="#d97c64" stroke="none"/><circle cx="24" cy="23" r="3" fill="#d97c64" stroke="none"/><path d="m14 20 3 2" stroke="#5d9263" stroke-width="3"/></g>
+            <g transform="translate(130 82)"><path d="M1 15h40l-6 16H7z" fill="#c5d7cf" stroke-width="2"/><path d="M2 14c3-9 34-9 38 0" fill="#efce8b" stroke-width="2"/><path d="m10 5 22-7m-13 8 22-7" stroke-width="2"/><path d="M8 15h26" stroke="#b67945" stroke-width="2"/></g>
+            <g transform="translate(130 123)"><path d="M7 12h28l-3 26H10z" fill="#e7ceaa" stroke-width="2"/><path d="M5 12h32" stroke-width="3"/><path d="m19 10 8-13" stroke="#8cbaa3" stroke-width="4"/><circle cx="16" cy="30" r="2" fill="#60482f"/><circle cx="25" cy="29" r="2" fill="#60482f"/><circle cx="21" cy="34" r="2" fill="#60482f"/></g>
+          </g>
+        </svg>
+      </a>
+      <div class="game-feature-copy">
+        <p class="eyebrow">01 / 自由排行</p>
+        <h2 id="ranking-title"><a href="/game/ranking/">从夯到拉</a></h2>
+        <p class="game-feature-description">美食、电影、生活里的小偏好——<br>没有标准答案，只有你的排序。</p>
+        <ul class="game-feature-details"><li>自由修改等级，添加文字或图片</li><li>拖拽或点选排列，手机也能玩</li><li>下载清晰榜单，留住这一刻的偏好</li></ul>
+        <a class="game-start" href="/game/ranking/">开始排榜 <span aria-hidden="true">→</span></a>
+        <p class="game-local-note">无需登录，图片仅在你的浏览器本地处理。</p>
+      </div>
+    </article>
+    <p class="games-note">这里的排行榜只表达个人偏好，默认美食示例仅供演示。</p>
+  </main>
+  <footer class="site-footer container"><p>谢雨卿 · Carl</p><div><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/game/" aria-current="page">小游戏 <span lang="en">Games</span></a><a href="/about/">关于我 <span lang="en">About</span></a><a href="/articles/feed.xml">RSS</a></div></footer>
+</body>
+</html>

@@ -276,9 +276,10 @@ class Blog:
         nav = []
         for label, target in [("个人主页", "/"), ("文章首页", "index.html"),
                               ('作品 <span lang="en">Projects</span>', "/projects/"),
+                              ('小游戏 <span lang="en">Games</span>', "/game/"),
                               ("中文文章", "chinese.html"), ("English", "english.html"), ("关于我", "/about/")]:
             current = ' aria-current="page"' if target == active else ""
-            address = target if target in {"/", "/projects/", "/about/"} else self.href(target)
+            address = target if target in {"/", "/projects/", "/game/", "/about/"} else self.href(target)
             link_language = ' lang="en"' if target == "english.html" else ""
             nav.append(f'<a href="{escape(address)}"{current}{link_language}>{label}</a>')
         return f'''<!doctype html>
@@ -596,7 +597,7 @@ class Blog:
                     continue
                 # These exact root destinations belong to the unified-site builder.
                 # Do not exempt arbitrary root paths from this article-site check.
-                if parsed.path in {"/", "/projects/", "/about/"}:
+                if parsed.path in {"/", "/projects/", "/game/", "/about/"}:
                     root_links += 1
                     continue
                 if not parsed.path.startswith(self.base_path):

@@ -1,4 +1,4 @@
-"""Build the personal home, /projects/, /about/ and /articles/ into one Pages directory."""
+"""Build the personal home, projects, about, games and articles into one Pages directory."""
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -13,6 +13,8 @@ import shutil
 from build_blog import Blog, ROOT
 
 OUTPUT = ROOT / "_site_unified"
+GAME_PAGES = (("game.template.html", "game"), ("ranking.template.html", "game/ranking"))
+GAME_ASSETS = ("game.css", "ranking.js", "ranking-model.js", "ranking-storage.js", "ranking-export.js")
 
 PROJECT_FIELDS = {"id", "title", "english_title", "kind", "summary", "problem", "features",
                   "contribution", "usage", "icon", "source_url", "guide_url"}
@@ -369,8 +371,18 @@ def build_site(address):
         raise ValueError("Unresolved about template placeholder.")
     (OUTPUT / "about").mkdir(exist_ok=True)
     (OUTPUT / "about/index.html").write_text(about_page, encoding="utf-8")
+    for template, route in GAME_PAGES:
+        source = ROOT / "home" / template
+        if source.is_symlink():
+            raise ValueError("Game template symlinks are not supported.")
+        page = source.read_text(encoding="utf-8").replace("{{site_url}}", escape(address, quote=True))
+        if "{{" in page:
+            raise ValueError(f"Unresolved game template placeholder: {template}")
+        destination = OUTPUT / route
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "index.html").write_text(page, encoding="utf-8")
     (OUTPUT / "assets").mkdir(exist_ok=True)
-    for name in ("portal.css", "portal.js", "wechat-qrcode.jpg"):
+    for name in ("portal.css", "portal.js", "wechat-qrcode.jpg", *GAME_ASSETS):
         source = ROOT / "home/assets" / name
         if source.is_symlink(): raise ValueError("Home asset symlinks are not supported.")
         shutil.copy2(source, OUTPUT / "assets" / name)
@@ -379,6 +391,8 @@ def build_site(address):
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/"
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/projects/"
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/about/"
+    for _, route in GAME_PAGES:
+        ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/" + route + "/"
     article_sitemap = ET.parse(OUTPUT / "articles/sitemap.xml")
     for loc in article_sitemap.findall(".//{*}loc"):
         ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = loc.text

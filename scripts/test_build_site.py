@@ -285,6 +285,7 @@ class ProjectPublicationTests(unittest.TestCase):
                                     and attrs.get("content") == "https://xieyuqing.me/projects/" for tag, attrs in tags))
                 sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
                 self.assertEqual(sitemap, ["https://xieyuqing.me/", "https://xieyuqing.me/projects/", "https://xieyuqing.me/about/",
+                                           "https://xieyuqing.me/game/", "https://xieyuqing.me/game/ranking/",
                                            "https://xieyuqing.me/articles/index.html",
                                            "https://xieyuqing.me/articles/synthetic.html"])
                 self.assertEqual(report["metadata"]["compatibility_redirects"], 1)
