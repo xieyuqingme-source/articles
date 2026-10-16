@@ -264,18 +264,19 @@ class MarkdownRenderingTests(unittest.TestCase):
         self.assertEqual([attrs["aria-pressed"] for attrs in buttons], ["false", "true", "false"])
         self.assertTrue(all(attrs["aria-controls"] == "article-toc" for attrs in buttons))
 
-    def _fixture_build(self):
+    def _fixture_build(self, waline=None):
         """Build only two synthetic articles, retaining no private input or full site."""
         with TemporaryDirectory(prefix=".blog-test-", dir=ROOT) as temporary:
             root = Path(temporary)
             (root / "blog").mkdir()
             (root / "blog/style.css").write_text("body{}", encoding="utf-8")
             (root / "blog/site.js").write_text("", encoding="utf-8")
+            (root / "blog/comment-avatar.svg").write_text("<svg/>", encoding="utf-8")
             self.blog.output = root / "_site"
             (self.blog.output / "assets").mkdir(parents=True)
             (self.blog.output / ".generated-by-blog").write_text("fixture", encoding="utf-8")
             (self.blog.output / "assets/wechat-copy.js").write_text("obsolete", encoding="utf-8")
-            self.blog.waline = {"enabled": False}
+            self.blog.waline = {"enabled": False} if waline is None else waline
             self.blog.articles = [
                 Article(root / "English Articles/long.md", "English Articles/long.html", "Long",
                         "2026-01-02", "en", "English Articles", "english.html", "## Heading\n\nBody"),
@@ -291,7 +292,12 @@ class MarkdownRenderingTests(unittest.TestCase):
                      for path in self.blog.output.rglob("*.html")}
             return {"pages": pages, "sitemap": (self.blog.output / "sitemap.xml").read_text(encoding="utf-8"),
                     "feed": (self.blog.output / "feed.xml").read_text(encoding="utf-8"),
-                    "obsolete_asset_exists": (self.blog.output / "assets/wechat-copy.js").exists()}
+                    "obsolete_asset_exists": (self.blog.output / "assets/wechat-copy.js").exists(),
+                    "avatar": (self.blog.output / "assets/comment-avatar.svg").read_text(encoding="utf-8"),
+                    "asset_paths": {path.relative_to(self.blog.output).as_posix()
+                                    for path in (self.blog.output / "assets").rglob("*") if path.is_file()},
+                    "waline_assets_exist": any((self.blog.output / "assets" / name).exists()
+                                               for name in ("waline-integration.js", "waline-integration.css", "waline"))}
 
     def test_build_drops_copy_ui_asset_and_legacy_about_sitemap_entry(self):
         result = self._fixture_build()
@@ -303,6 +309,50 @@ class MarkdownRenderingTests(unittest.TestCase):
             for removed in ("wechat-copy", "wechat-preview", "wechat-tools", "复制到公众号", "Folder Guide"):
                 self.assertNotIn(removed, page)
         self.assertIn('href="/about/"', result["pages"]["index.html"])
+
+    def test_disabled_build_publishes_avatar_without_waline_code_or_requests(self):
+        public_settings = json.loads((ROOT / "blog/waline.json").read_text(encoding="utf-8"))
+        # A disabled fixture remains valid even after an authorized future launch.
+        result = self._fixture_build(waline={**public_settings, "enabled": False, "backendVerified": False})
+        self.assertEqual(result["avatar"], "<svg/>")
+        self.assertFalse(result["waline_assets_exist"])
+        for page in result["pages"].values():
+            for marker in ("waline-settings", "waline-integration", "data-stats-path", "article-comments"):
+                self.assertNotIn(marker, page)
+
+    def test_staged_live_backend_build_keeps_assets_and_article_identity(self):
+        public_settings = json.loads((ROOT / "blog/waline.json").read_text(encoding="utf-8"))
+        staged = {**public_settings, "enabled": True, "backendVerified": True}
+        config_file = Mock()
+        config_file.is_file.return_value = True
+        config_file.read_text.return_value = json.dumps(staged)
+        staged = read_waline_config(config_file)
+        self.blog = Blog("https://xieyuqing.me/articles")
+        # Enable only the in-memory fixture, writing two synthetic articles in a temporary root.
+        result = self._fixture_build(waline=staged)
+        self.assertTrue({"assets/waline-integration.js", "assets/waline-integration.css",
+                         "assets/waline/waline.js", "assets/waline/waline.css", "assets/waline/LICENSE"}
+                        .issubset(result["asset_paths"]))
+        for destination in ("index.html", "chinese.html", "english.html", "中文文章/short.html"):
+            page = result["pages"][destination]
+            settings = json.loads(page.split('id="waline-settings">', 1)[1].split("</script>", 1)[0])
+            self.assertEqual(settings["serverURL"], public_settings["serverURL"])
+            self.assertEqual(settings["hostingProvider"], public_settings["hostingProvider"])
+            self.assertEqual(settings["databaseProvider"], public_settings["databaseProvider"])
+            self.assertEqual(settings["siteOrigin"], "https://xieyuqing.me")
+            self.assertEqual(settings["clientJS"], "/articles/assets/waline/waline.js")
+            self.assertEqual(settings["clientCSS"], "/articles/assets/waline/waline.css")
+            self.assertIs(settings["enabled"], True)
+            self.assertIs(settings["backendVerified"], True)
+            self.assertNotIn("审核通过后显示", page)
+        article = Elements(result["pages"]["中文文章/short.html"]).elements
+        widget_path = next(attrs["data-article-path"] for _, attrs in article
+                           if attrs.get("id") == "article-comments")
+        self.assertEqual(unquote(widget_path), "/articles/中文文章/short.html")
+        self.assertTrue(any(attrs.get("data-stats-path") == widget_path for _, attrs in article))
+        listing = Elements(result["pages"]["index.html"]).elements
+        self.assertTrue(any(attrs.get("data-stats-path") == widget_path for _, attrs in listing))
+        self.assertNotIn("waline-settings", result["pages"]["about.html"])
 
     def test_build_shows_toc_controls_only_for_articles_with_headings(self):
         result = self._fixture_build()

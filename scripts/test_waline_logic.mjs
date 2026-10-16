@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = fs.readFileSync(path.join(root, 'blog/waline-integration.js'), 'utf8');
 const { startWaline, stablePath } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
@@ -115,5 +116,84 @@ assert.equal(uncertain.stats[0].counters.views.value.textContent, '12');
 checks.push('uncertain increment is not retried; GET can still recover its count');
 assert(article.calls.every(x => x.credentials === 'omit' && x.signal && x.cache === 'no-store'));
 checks.push('counter requests omit cookies and carry timeout signals');
+// The real public settings are only inputs to dependency-injected mocks; no live request is made.
+const publicSettings = JSON.parse(fs.readFileSync(path.join(root, 'blog/waline.json'), 'utf8'));
+const productionOrigin = 'https://xieyuqing.me';
+const productionArticle = productionOrigin + '/articles/%E4%B8%AD%E6%96%87/test.html?source=mock#end';
+const prepared = await setup({
+  settings: { ...publicSettings, enabled: false, backendVerified: false, siteOrigin: productionOrigin },
+  url: productionArticle
+});
+assert.equal(prepared.calls.length, 0); assert.equal(prepared.loads.length, 0);
+assert.equal(prepared.init.length, 0); assert.equal(prepared.section.hidden, true);
+checks.push('prepared public backend configuration remains inert when its copied fixture is disabled');
+const staged = await setup({
+  settings: { ...publicSettings, enabled: true, backendVerified: true, siteOrigin: productionOrigin },
+  url: productionArticle
+});
+const backendOrigin = new URL(publicSettings.serverURL).origin;
+assert.equal(staged.init.length, 1); assert.equal(staged.section.hidden, false);
+assert.equal(staged.init[0].serverURL, publicSettings.serverURL.replace(/\/$/, ''));
+assert.equal(staged.init[0].path, '/articles/中文/test.html');
+assert(staged.calls.length > 0 && staged.calls.every(call => call.url.origin === backendOrigin &&
+  /^\/api\/(article|comment)$/.test(call.url.pathname)));
+assert.equal(staged.calls.filter(call => call.method === 'POST').length, 1);
+assert.deepEqual(JSON.parse(staged.calls.find(call => call.method === 'POST').body),
+  { path: staged.init[0].path, type: 'time', action: 'inc' });
+assert.deepEqual(new Set(staged.loads), new Set([
+  '/articles/assets/waline/waline.js', '/articles/assets/waline/waline.css'
+]));
+assert.doesNotMatch(staged.init[0].locale.placeholder, /审核通过后显示/);
+checks.push('staged public backend and production paths agree across mocked counters and local client loading');
+
+// Execute the preparation entry with a fake Waline factory and isolated test env.
+// Only the requested module is allowed; no service dependency or network is loaded.
+const backendSource = fs.readFileSync(path.join(root, 'blog/waline-server/index.example.cjs'), 'utf8');
+function loadBackend(environment = {}) {
+  const sentinel = Object.freeze({ mockedWaline: true });
+  const backendModule = { exports: {} };
+  let captured, requires = 0, factoryCalls = 0;
+  vm.runInNewContext(backendSource, {
+    module: backendModule, URL, process: { env: { ...environment } },
+    require(name) {
+      assert.equal(name, '@waline/vercel');
+      requires += 1;
+      return options => { captured = options; factoryCalls += 1; return sentinel; };
+    }
+  }, { filename: 'index.example.cjs', timeout: 1000 });
+  assert.equal(requires, 1); assert.equal(factoryCalls, 1);
+  assert.equal(backendModule.exports, sentinel);
+  return captured;
+}
+const backendDefault = loadBackend();
+assert.deepEqual([...backendDefault.secureDomains], ['xieyuqing.me']);
+checks.push('backend defaults allow the current site and export the mocked Waline handler');
+const backendHost = loadBackend({ SERVER_URL: 'https://comments.test/' });
+assert.deepEqual([...backendHost.secureDomains], ['xieyuqing.me', 'comments.test']);
+checks.push('backend automatically includes the SERVER_URL hostname');
+const backendConfigured = loadBackend({
+  SECURE_DOMAINS: ' custom.test, , custom.test ', SERVER_URL: 'https://comments.test/'
+});
+assert.deepEqual([...backendConfigured.secureDomains], ['custom.test', 'comments.test']);
+const backendRepeatedHost = loadBackend({
+  SECURE_DOMAINS: ' comments.test, comments.test ', SERVER_URL: 'https://comments.test/'
+});
+assert.deepEqual([...backendRepeatedHost.secureDomains], ['comments.test']);
+checks.push('backend trims configured comma lists, replaces defaults and removes repeated hosts');
+const backendBlank = loadBackend({
+  SECURE_DOMAINS: ' , \t, ', SERVER_URL: 'https://comments.test/'
+});
+assert.deepEqual([...backendBlank.secureDomains], ['xieyuqing.me', 'comments.test']);
+checks.push('backend empty domain lists fall back to the current site and backend host');
+const genericAvatar = 'https://xieyuqing.me/articles/assets/comment-avatar.svg';
+const backendAvatarTemplate = loadBackend({ GRAVATAR_STR: 'https://avatar.invalid/{{mail|md5}}' });
+for (const options of [backendDefault, backendAvatarTemplate]) {
+  for (const comment of [undefined, {}, { mail: 'guest@example.test' },
+    { mail: 'admin@example.test', type: 'administrator', avatar: 'https://avatar.invalid/admin.png' }]) {
+    assert.equal(options.avatarUrl(comment), genericAvatar);
+  }
+}
+checks.push('backend guests and administrators share the local avatar independently of mail templates');
+
 console.log(JSON.stringify({ success: true, check_count: checks.length, checks,
   network_used: false, actual_server_moderation_tested: false, browser_used: false }, null, 2));

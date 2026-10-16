@@ -107,7 +107,7 @@ export async function startWaline(deps = {}) {
         lang: 'zh-CN', dark: 'html[data-theme="dark"]', meta: ['nick', 'mail'], requiredMeta: ['nick'],
         login: 'disable', imageUploader: false, search: false, emoji: false, reaction: false,
         texRenderer: false, highlighter: false, comment: false, pageview: false, noRss: true,
-        locale: { placeholder: '欢迎留言。昵称必填，邮箱选填；评论审核通过后显示。' }
+        locale: { placeholder: '欢迎留言。昵称必填，邮箱选填；提交成功后直接公开，无需人工预审。' }
       });
       comments.hidden = false;
     } catch (_) { comments.hidden = true; }

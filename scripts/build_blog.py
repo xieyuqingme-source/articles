@@ -349,8 +349,8 @@ class Blog:
         if not self.waline["enabled"]:
             return ""
         return (f'<section class="article-comments" id="article-comments" data-article-path="{escape(self.href(article.destination))}" aria-labelledby="comments-heading" lang="zh-CN" hidden>'
-                '<h2 id="comments-heading">留言</h2><p class="comment-policy">无需注册；昵称必填，邮箱选填。评论审核通过后显示。</p>'
-                '<p class="comment-privacy">评论和昵称会公开；邮箱不公开且不用于通知。评论、昵称、可选邮箱及请求中的IP和浏览器信息会由所选Waline后端及其托管商处理；不公开地区和浏览器标签。'
+                '<h2 id="comments-heading">留言</h2><p class="comment-policy">无需注册；昵称必填，邮箱选填。提交成功后直接公开，无需人工预审。</p>'
+                '<p class="comment-privacy">评论和昵称会公开；邮箱为选填且不公开。评论、昵称、可选邮箱及请求中的IP和浏览器信息会由所选Waline后端及其托管商处理；评论区显示IP属地，不公开完整IP；不显示浏览器和操作系统标签。'
                 + self.provider_notice() + '</p><div id="waline"></div></section>')
 
     def excerpt(self, article: Article) -> str:
@@ -506,8 +506,10 @@ class Blog:
             obsolete_copy_asset.unlink()
         shutil.copy2(ROOT / "blog/style.css", self.output / "assets/style.css")
         shutil.copy2(ROOT / "blog/site.js", self.output / "assets/site.js")
+        # Publish the ordinary avatar asset before enabling the backend widget.
+        shutil.copy2(ROOT / "blog/comment-avatar.svg", self.output / "assets/comment-avatar.svg")
         if self.waline["enabled"]:
-            for name in ("waline-integration.js", "waline-integration.css", "comment-avatar.svg"):
+            for name in ("waline-integration.js", "waline-integration.css"):
                 shutil.copy2(INTERACTION_DIR / name, self.output / "assets" / name)
             shutil.copytree(INTERACTION_DIR / "vendor/waline", self.output / "assets/waline", dirs_exist_ok=True)
         for folder in ASSETS:
