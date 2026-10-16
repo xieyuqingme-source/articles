@@ -66,7 +66,7 @@ class GamePublicationTests(unittest.TestCase):
         origin = "https://preview.example"
         output, report = self.build_fixture(origin)
         self.assertTrue(report["success"])
-        self.assertEqual(report["metadata"]["canonical_pages"], 7)
+        self.assertEqual(report["metadata"]["canonical_pages"], 8)
         sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
         for route in ("game", "game/ranking"):
             with self.subTest(route=route):

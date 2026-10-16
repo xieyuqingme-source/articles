@@ -37,6 +37,10 @@ jobs:
         run: python scripts/test_build_blog.py
       - name: Check responsive image generation
         run: python scripts/test_image_assets.py
+      - name: Check photography export and public pages
+        run: python -m unittest discover -s scripts -p "test*photos*.py"
+      - name: Check photography lightbox interactions
+        run: node scripts/test_photos_logic.cjs
       - name: Check unified site rules
         run: python scripts/test_build_site.py
       - name: Check local about routes

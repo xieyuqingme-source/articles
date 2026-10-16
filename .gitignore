@@ -3,3 +3,7 @@
 __pycache__/
 /_site_unified/
 /.local-checks/
+
+# Private photography source paths, identities and local export cache
+/.photos-local.json
+/.photo-cache/

@@ -11,6 +11,7 @@ import re
 import shutil
 
 from build_blog import Blog, ROOT
+from photo_pages import build_photos
 
 OUTPUT = ROOT / "_site_unified"
 GAME_PAGES = (("game.template.html", "game"), ("ranking.template.html", "game/ranking"))
@@ -405,6 +406,7 @@ def build_site(address):
         raise ValueError("Keep the existing unrecognized output directory intact.")
     OUTPUT.mkdir(exist_ok=True)
     (OUTPUT / ".generated-by-unified-site").write_text("Generated unified website.\n", encoding="utf-8")
+    photo_report = build_photos(ROOT, OUTPUT, address)
     blog = Blog(address + "/articles", output=OUTPUT / "articles")
     # Keep the legacy _site and every pre-existing file; CI starts from a clean checkout.
     blog.build(clean=False)
@@ -417,7 +419,9 @@ def build_site(address):
         recent.append(f'        <li><div class="article-meta">{published}<span>{escape(topic)}</span></div><h3 lang="{article.language}"><a href="{escape(blog.href(article.destination))}">{escape(article.title)}<span aria-hidden="true">↗</span></a></h3></li>')
     values = {"article_total": str(len(blog.articles)), "chinese_total": str(sum(a.language == "zh-CN" for a in blog.articles)),
               "english_total": str(sum(a.language != "zh-CN" for a in blog.articles)), "recent_articles": "\n".join(recent), "site_url": escape(address, quote=True),
-              "project_total": str(len(projects))}
+              "project_total": str(len(projects)),
+              "photo_album_total": str(photo_report["albums"]),
+              "photo_total": str(photo_report["photos"])}
     for name, value in values.items(): home = home.replace("{{" + name + "}}", value)
     if "{{" in home: raise ValueError("Unresolved home template placeholder.")
     (OUTPUT / "index.html").write_text(home, encoding="utf-8")
@@ -460,6 +464,8 @@ def build_site(address):
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/about/"
     for _, route in GAME_PAGES:
         ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/" + route + "/"
+    for route in photo_report["routes"]:
+        ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/" + route + "/"
     article_sitemap = ET.parse(OUTPUT / "articles/sitemap.xml")
     for loc in article_sitemap.findall(".//{*}loc"):
         ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = loc.text
@@ -467,6 +473,7 @@ def build_site(address):
     (OUTPUT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {address}/sitemap.xml\n", encoding="utf-8")
     report = check_site(address)
     report["metadata"] = check_publication_metadata(address)
+    report["photography"] = photo_report
     responsive = getattr(blog, "responsive_images", None)
     if responsive is not None:
         report["responsive_images"] = responsive.report()
