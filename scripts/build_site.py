@@ -12,6 +12,7 @@ import shutil
 
 from build_blog import Blog, ROOT
 from photo_pages import build_photos
+from map_pages import load_map, build_map
 
 OUTPUT = ROOT / "_site_unified"
 GAME_PAGES = (("game.template.html", "game"), ("ranking.template.html", "game/ranking"))
@@ -392,13 +393,15 @@ def copy_game_photo_assets(photo_sets):
             shutil.copy2(source, destination)
 
 
-def build_site(address):
+def build_site(address, map_preview_source=None):
     address = site_root(address)
     projects = load_projects()
     about_data = load_about()
     # Every template's complete photo set must pass before any output is generated.
     photo_sets = (("foods", "food", game_food_sources()), ("sports", "sport", game_sport_sources()))
-    if OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / "_site_unified":
+    map_data = load_map(ROOT, map_preview_source)
+    expected_output = "_site_map_preview" if map_preview_source else "_site_unified"
+    if OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / expected_output:
         raise ValueError("Unsafe unified output path.")
     if linked_directory(OUTPUT / "assets"):
         raise ValueError("Generated game asset directory symlinks or junctions are not supported.")
@@ -406,7 +409,8 @@ def build_site(address):
         raise ValueError("Keep the existing unrecognized output directory intact.")
     OUTPUT.mkdir(exist_ok=True)
     (OUTPUT / ".generated-by-unified-site").write_text("Generated unified website.\n", encoding="utf-8")
-    photo_report = build_photos(ROOT, OUTPUT, address)
+    photo_report = build_photos(ROOT, OUTPUT, address, allow_local_map_preview=bool(map_preview_source))
+    map_report = build_map(ROOT, OUTPUT, address, map_data, preview=bool(map_preview_source))
     blog = Blog(address + "/articles", output=OUTPUT / "articles")
     # Keep the legacy _site and every pre-existing file; CI starts from a clean checkout.
     blog.build(clean=False)
@@ -462,6 +466,7 @@ def build_site(address):
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/"
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/projects/"
     ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/about/"
+    ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/map/"
     for _, route in GAME_PAGES:
         ET.SubElement(ET.SubElement(sitemap, "url"), "loc").text = address + "/" + route + "/"
     for route in photo_report["routes"]:
@@ -474,11 +479,12 @@ def build_site(address):
     report = check_site(address)
     report["metadata"] = check_publication_metadata(address)
     report["photography"] = photo_report
+    report["footprints"] = map_report
     responsive = getattr(blog, "responsive_images", None)
     if responsive is not None:
         report["responsive_images"] = responsive.report()
     report.update({"articles": len(blog.articles), "projects": len(projects),
-                   "publication_directory": "_site_unified", "waline_enabled": blog.waline["enabled"]})
+                   "publication_directory": expected_output, "waline_enabled": blog.waline["enabled"]})
     return report
 
 

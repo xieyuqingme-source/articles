@@ -142,13 +142,14 @@ def _render_page(template, address, route, title, description, content):
     return result
 
 
-def build_photos(root, output, address):
+def build_photos(root, output, address, *, allow_local_map_preview=False):
     """Copy only validated public derivatives and render all photography routes."""
     root, output = Path(root).absolute(), Path(output).absolute()
     parts = urlsplit(address)
     if parts.scheme != "https" or not parts.netloc or parts.path or parts.query or parts.fragment or parts.username or parts.password:
         raise ValueError("Photo pages need the root HTTPS site origin.")
-    if output.resolve() != root.resolve() / "_site_unified":
+    allowed_output = "_site_map_preview" if allow_local_map_preview else "_site_unified"
+    if output.resolve() != root.resolve() / allowed_output:
         raise ValueError("Photo output must be the existing unified site directory.")
     catalog_path = root / "photos/catalog.json"
     _safe_path(root, catalog_path)

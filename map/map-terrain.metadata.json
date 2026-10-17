@@ -1,0 +1,65 @@
+{
+  "asset": "home/assets/map-terrain.jpg",
+  "dataset": "Natural Earth II with Shaded Relief and Water",
+  "layer": "NE2_50M_SR_W",
+  "layerVersion": "3.2.0",
+  "retrievedDateUTC": "2026-10-17",
+  "sourcePage": "https://www.naturalearthdata.com/downloads/50m-raster-data/50m-natural-earth-2/",
+  "sourceDetailsPage": "https://www.naturalearthdata.com/downloads/50m-natural-earth-2/50m-natural-earth-ii-with-shaded-relief-and-water/",
+  "sourceURL": "https://naturalearth.s3.amazonaws.com/50m_raster/NE2_50M_SR_W.zip",
+  "licenseURL": "https://www.naturalearthdata.com/about/terms-of-use/",
+  "license": "Public domain",
+  "attribution": "Made with Natural Earth.",
+  "attributionRequired": false,
+  "bytes": 4216152,
+  "sha256": "b0a73730c01da8fff85ed073f3bf7ee65b6e1beb0249a572a249f153f0c53729",
+  "format": "JPEG RGB progressive",
+  "width": 6144,
+  "height": 3072,
+  "coordinateReferenceSystem": "WGS84 longitude/latitude degrees, equirectangular grid",
+  "sourceProjectionEvidence": "Bundled Read_me.txt: Geographic projection and WGS84 datum.",
+  "extent": [
+    -180,
+    -90,
+    180,
+    90
+  ],
+  "orientation": "top row north; left column west",
+  "sourceRasterSize": [
+    10800,
+    5400
+  ],
+  "sourceWorldFileTransform": [
+    0.03333333333333,
+    0.0,
+    0.0,
+    -0.03333333333333,
+    -179.98333333333332,
+    89.98333333333333
+  ],
+  "sourceExtentFromWorldFile": [
+    -179.99999999999997,
+    -89.99999999998202,
+    179.99999999996405,
+    90.0
+  ],
+  "processing": "Decoded unchanged upstream 10800x5400 TIFF, converted to RGB, uniformly downsampled to 6144x3072 using Pillow LANCZOS, JPEG quality=90, optimize=true, progressive=true, subsampling=0. No upsampling, artificial detail, sharpening, crop, recoloring, reprojection, geography edits, country/administrative border overlay, labels or watermarks.",
+  "purpose": "Small-scale illustrative physical landscape and shaded terrain; idealized land cover, not current satellite imagery or street navigation. No political or administrative boundary layer.",
+  "sourceArchiveBytes": 88903451,
+  "sourceArchiveSHA256": "7e0e07089b699a3cccad98dd1b2446390d8e3f8c5006359d477a329cebcafaa9",
+  "sourceRasterSHA256": "02ae944d9ee8a64ccacbd4f535220aac10b5c95e874118b6db8d6f07cea48e71",
+  "resolutionReview": {
+    "reviewDateUTC": "2026-10-17",
+    "previousSize": [
+      4096,
+      2048
+    ],
+    "previousBytes": 1951539,
+    "linearResolutionRatio": 1.5,
+    "pixelCountRatio": 2.25,
+    "decodedRGBAMiBLowerBound": 72,
+    "selection": "6144x3072 retains more actual source detail than4096x2048 while avoiding8192x4096 default decodedRGBA128MiB and6.0-6.7MiB JPEG payload. Selected JPEG4.021MiB; original source retained locally.",
+    "limits": "Actual rendered detail depends on the current viewport, browser sampling and output pixel dimensions. This remains small-scale illustrative terrain, not satellite imagery, street navigation or new elevation measurements. HighDPI does not add source detail. Decoded memory excludes browser surfaces, dataURL strings, SVG copies and video encoder buffers.",
+    "localMeasurementSummary": "Same-geographic-region comparisons against the original TIFF at original-region resolution: Himalaya RGB mean absolute error10.4174->5.4187, EastAsia4.9512->3.0098 (old->chosen;0-255 range). Single local Pillow decode trials185-198ms->410-415ms; indicative only, not a device-independent benchmark."
+  }
+}

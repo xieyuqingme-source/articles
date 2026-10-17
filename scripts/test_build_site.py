@@ -258,6 +258,7 @@ class ProjectPublicationTests(unittest.TestCase):
         with TemporaryDirectory(prefix="yuliao-site-projects-", dir=ROOT) as temporary:
             root = Path(temporary)
             shutil.copytree(ROOT / "home", root / "home")
+            shutil.copytree(ROOT / "map", root / "map")
             output = root / "_site_unified"
             with patch.object(build_site, "ROOT", root), patch.object(build_site, "OUTPUT", output), \
                  patch.object(build_site, "Blog", side_effect=self.fake_blog):
@@ -285,6 +286,7 @@ class ProjectPublicationTests(unittest.TestCase):
                                     and attrs.get("content") == "https://xieyuqing.me/projects/" for tag, attrs in tags))
                 sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
                 self.assertEqual(sitemap, ["https://xieyuqing.me/", "https://xieyuqing.me/projects/", "https://xieyuqing.me/about/",
+                                           "https://xieyuqing.me/map/",
                                            "https://xieyuqing.me/game/", "https://xieyuqing.me/game/ranking/",
                                            "https://xieyuqing.me/photos/",
                                            "https://xieyuqing.me/articles/index.html",

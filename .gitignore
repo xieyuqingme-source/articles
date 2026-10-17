@@ -4,6 +4,10 @@ __pycache__/
 /_site_unified/
 /.local-checks/
 
+# Private footprints source path and separate draft build
+/.map-local.json
+/_site_map_preview/
+
 # Private photography source paths, identities and local export cache
 /.photos-local.json
 /.photo-cache/

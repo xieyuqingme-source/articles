@@ -25,8 +25,12 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8767)
+    parser.add_argument("--map-draft", action="store_true", help="Serve only the separate local map draft build")
     args = parser.parse_args()
-    if (OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / "_site_unified"
+    if args.map_draft:
+        OUTPUT = ROOT / "_site_map_preview"
+    expected_output = "_site_map_preview" if args.map_draft else "_site_unified"
+    if (OUTPUT.is_symlink() or OUTPUT.resolve() != ROOT.resolve() / expected_output
             or not (OUTPUT / ".generated-by-unified-site").is_file()):
         parser.error("Build first: python scripts/build_site.py")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(OUTPUT)))

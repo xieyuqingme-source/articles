@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>地图与足迹 · 谢雨卿</title>
+  <meta name="description" content="以城市和时间记录人生的停留，也可以在浏览器中制作自己的足迹地图。">
+  <meta name="author" content="Xie Yuqing (Carl)"><link rel="canonical" href="{{site_url}}/map/">
+  <meta property="og:type" content="website"><meta property="og:title" content="地图与足迹 · 谢雨卿"><meta property="og:url" content="{{site_url}}/map/">
+  <script>(()=>{let t="light";try{const s=localStorage.getItem("xieyuqing-blog-theme");t=s==="light"||s==="dark"?s:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}catch(_){}document.documentElement.dataset.theme=t;})();</script>
+  <link rel="stylesheet" href="/assets/portal.css"><link rel="stylesheet" href="/assets/map.css">
+  <script src="/assets/portal.js" defer></script><script src="/assets/map-model.js" defer></script><script src="/assets/map-playback.js" defer></script><script src="/assets/map-avatar.js" defer></script><script src="/assets/map-journey.js" defer></script><script src="/assets/map-view.js" defer></script><script src="/assets/map-labels.js" defer></script><script src="/assets/map-video.js" defer></script><script src="/assets/map.js" defer></script><script src="/assets/map-video-ui.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到内容</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="谢雨卿的个人主页"><span class="brand-mark" aria-hidden="true">谢</span><span>谢雨卿 <small>XIE YUQING · CARL</small></span></a>
+    <nav class="site-nav" aria-label="主导航"><a href="/">个人主页</a><a href="/articles/">文章 <span lang="en">Articles</span></a><a href="/projects/">作品 <span lang="en">Projects</span></a><a href="/photos/">摄影 <span lang="en">Photos</span></a><a href="/map/" aria-current="page">足迹 <span lang="en">Map</span></a><a href="/game/">小游戏 <span lang="en">Games</span></a><a href="/about/">关于我 <span lang="en">About</span></a></nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换深浅色模式" hidden><span class="theme-label">深色</span></button>
+  </header>
+  <main id="main" class="container map-main">
+    <section class="map-intro"><h1>地图与足迹</h1><p>三十功名尘与土，八千里路云和月。</p></section>
+    <noscript><p class="map-notice">请启用 JavaScript 查看地图和制作工具。你的经历在浏览器中处理。</p></noscript>
+    <p id="preview-notice" class="map-notice" hidden></p>
+    <p id="map-status" class="map-status" role="status" aria-live="polite"></p>
+    <section class="map-workspace" aria-label="足迹地图与时间轴">
+      <div class="map-canvas-panel">
+        <div class="map-toolbar"><div><h2 id="map-title">我的足迹</h2><p id="map-summary"></p></div><button id="map-expanded-close" type="button" hidden>退出大图 ×</button></div>
+        <div id="map-canvas" class="map-canvas"><svg id="footprints-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" role="group" aria-labelledby="map-svg-title map-svg-description"><title id="map-svg-title">城市足迹示意图</title><desc id="map-svg-description">本地自然地形底图，无国界或行政边界。点表示城市中心；点击或用 Tab 选中城市后按回车查看各段经历。不是导航地图。</desc></svg></div>
+        <div class="map-below-tools">
+    <div class="map-mode" role="group" aria-label="地图内容"><button id="mode-mine" type="button" aria-pressed="true">我的足迹</button><button id="mode-visitor" type="button" aria-pressed="false">制作你的地图</button></div>
+    <section id="visitor-tools" class="visitor-tools" aria-label="制作你的地图" hidden>
+      <div class="editor-heading"><h2>你的停留，你来记录</h2><div class="draft-actions"><button id="undo-data" type="button" disabled>撤销</button><button id="clear-data" type="button">一键清空</button><button id="add-record" type="button" class="map-primary">＋ 添加经历</button></div></div>
+      <label class="map-title-label" for="visitor-title">地图名称 <input id="visitor-title" maxlength="120" value="我的足迹地图"></label>
+      <details class="import-panel"><summary>导入足迹文档 · JSON / Markdown</summary><label for="import-file">选择文档 <input id="import-file" type="file" accept=".json,.md,.markdown,application/json,text/markdown"></label><label for="import-text">或粘贴文档 <textarea id="import-text" rows="6" spellcheck="false" placeholder="{ &quot;version&quot;: 1, &quot;title&quot;: &quot;我的足迹&quot;, &quot;records&quot;: [...] }"></textarea></label><button id="import-apply" type="button">验证并合并导入</button><a href="/assets/map-example.md" download>下载格式示例</a></details>
+      <div class="local-tools"><button id="save-local" type="button">保存到此浏览器</button><button id="restore-local" type="button">恢复本机保存</button><button id="delete-local" type="button">删除本机保存</button></div>
+    </section>
+        <div class="map-view-tools" role="group" aria-label="地图显示与图片下载"><label for="map-view">视野 <select id="map-view"><option value="fit" selected>足迹范围</option><option value="china">中国视野</option><option value="world">世界</option><option value="asia">亚洲</option></select></label><button id="map-zoom-in" type="button" aria-label="放大地图">＋ 放大</button><button id="map-zoom-out" type="button" aria-label="缩小地图">− 缩小</button><button id="map-zoom-reset" type="button">重置视野</button><span id="map-zoom-level" aria-live="polite">1×</span><label for="map-layer">底图 <select id="map-layer"><option value="simple">简洁</option><option value="terrain" selected>自然地形</option></select></label><button id="map-expand" type="button" aria-expanded="false">展开大图</button><button id="map-add-here" type="button">＋ 添加经历</button><button id="map-download-image" type="button" class="map-primary">↓ 下载图片</button></div>
+        <label class="route-option"><input id="map-labels" type="checkbox"> 显示城市名称</label>
+        <label class="route-option"><input id="map-route" type="checkbox" checked> 时间顺序连线</label>
+        <section id="playback-panel" class="playback-panel" aria-label="足迹视频" data-state="idle">
+          <div class="playback-controls"><button id="video-generate" type="button" class="map-primary">生成足迹视频</button><button id="video-cancel" type="button" hidden>取消生成</button><label for="video-pace">节奏 <select id="video-pace"><option value="normal" selected>舒适</option><option value="brisk">轻快</option><option value="relaxed">从容</option></select></label><a id="video-download" class="video-download" hidden download>下载视频</a></div>
+          <p id="video-capability" class="playback-note"></p><p id="video-estimate" class="playback-note"></p>
+          <div id="journey-options" class="journey-options" hidden></div><p id="journey-warnings" class="playback-note"></p>
+          <progress id="video-progress" max="1" value="0" hidden aria-label="视频生成进度"></progress><p id="playback-progress" role="status" aria-live="polite"></p>
+          <div id="playback-current" class="playback-current" aria-label="当前视频经历"></div>
+          <canvas id="video-canvas" width="1280" height="960" hidden aria-label="正在生成的足迹视频画面"></canvas>
+          <video id="video-preview" controls playsinline preload="metadata" hidden aria-label="已生成的足迹视频预览"></video>
+          <details class="avatar-options"><summary>视频头像</summary><div class="avatar-tools"><img id="avatar-preview" width="48" height="48" alt="当前视频头像" hidden><label for="avatar-file">选择自己的头像 <input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"></label><button id="avatar-reset" type="button">使用雨聊猫</button><button id="avatar-download" type="button">下载当前头像</button></div><p id="avatar-status" class="playback-note" role="status" aria-live="polite">PNG / JPEG / WebP · 最大 5 MiB</p></details>
+        </section>
+        </div>
+        <details id="city-filter-disclosure" class="city-filter-disclosure"><summary>按城市查看</summary><div id="city-filters" class="city-filters" role="group" aria-label="按城市查看各段经历"></div></details>
+        <p class="map-attribution">底图：<a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer">Natural Earth · Public Domain</a></p>
+        <div class="export-tools" aria-label="导出地图"><span>带走这张地图</span><button id="export-json" type="button">恢复用 JSON</button><button id="export-markdown" type="button">Markdown 文档</button><button id="export-svg" type="button">SVG 图片</button><button id="export-png" type="button">PNG 图片</button></div>
+      </div>
+      <aside class="timeline-panel" aria-label="停留时间轴"><div class="timeline-heading"><h2 id="timeline-title">停留时间轴</h2><button id="clear-city" type="button" hidden>显示全部</button></div><ol id="timeline-list" class="timeline-list"></ol><p id="empty-state" class="empty-state" hidden>还没有可显示的经历。添加一段停留，或导入自己的足迹文档。</p></aside>
+    </section>
+    <details class="map-help"><summary>使用帮助</summary><p>拖动平移，滚轮或双指缩放；方向键平移，＋／−缩放。悬停查看地名，点按地点查看经历，双击空白处添加到访客草稿，也可使用“添加经历”。</p><p>同一城市可以记录多次停留。日期可精确到年、月或日，未知留空；约略日期请选择“约略”。手填地点需核对城市、国家或地区及城市中心坐标。</p><p>访客草稿只在浏览器中处理，默认不自动保存。JSON 和 Markdown 可恢复数据；图片只保存画面。撤销和一键清空仅操作访客草稿，个人时间表不变。</p><p>连线仅表示时间顺序；返回长期生活地的画面不补造返回日期。视频生成时请保持页面在前台。</p></details>
+  </main>
+  <dialog id="record-dialog" class="map-dialog" aria-labelledby="record-dialog-title"><div class="dialog-heading"><h2 id="record-dialog-title">添加经历</h2><button id="record-close" type="button" class="dialog-close" aria-label="关闭编辑，不保存">×</button></div><form id="record-form">
+    <input id="record-id" type="hidden">
+    <label for="record-title">经历标题（可空，默认城市）<input id="record-title" maxlength="160" placeholder="例如：在北京的求学时光"></label>
+    <div class="form-pair"><label for="record-start">开始 <input id="record-start" maxlength="10" placeholder="YYYY / YYYY-MM / YYYY-MM-DD"></label><label for="record-end">结束 <input id="record-end" maxlength="10" placeholder="未知请留空"></label></div>
+    <div class="form-pair"><label for="record-stay-type">这段经历 <select id="record-stay-type"><option value="visit">旅行 / 短暂停留</option><option value="base">长期生活基地</option></select></label><label for="record-ongoing" class="coordinate-check"><input id="record-ongoing" type="checkbox"> 明确仍在此生活（至今）</label></div>
+    <label for="record-certainty">日期与经历的确定程度 <select id="record-certainty"><option value="confirmed">已证实</option><option value="approximate">约略（在页面中标示）</option></select></label>
+    <label for="city-choice">城市字典（先核对国家与省区）<select id="city-choice"><option value="">手动填写 / 选择城市…</option></select></label>
+    <div class="form-pair"><label for="record-city">城市 <input id="record-city" maxlength="160" required></label><label for="record-country">国家或地区 <input id="record-country" maxlength="160" required></label></div>
+    <label for="record-region">省 / 州 / 所属区域（可空）<input id="record-region" maxlength="200"></label>
+    <div class="form-pair"><label for="record-lat">城市中心纬度 <input id="record-lat" type="number" step="any" min="-90" max="90" required></label><label for="record-lon">城市中心经度 <input id="record-lon" type="number" step="any" min="-180" max="180" required></label></div>
+    <label class="coordinate-check" for="coordinate-confirm"><input id="coordinate-confirm" type="checkbox"> 我已核对手动地点的城市、国家 / 区域与城市中心坐标</label>
+    <label for="record-description">完整说明 <textarea id="record-description" rows="5" maxlength="12000" placeholder="这段停留发生了什么？不要填写私密来源或详细地址。"></textarea></label>
+    <label for="record-album">关联本站相册（可空）<input id="record-album" maxlength="200" placeholder="/photos/beijing-memory/"></label>
+    <p id="record-error" class="form-error" role="alert"></p><div class="dialog-actions"><button id="record-cancel" type="button">取消</button><button id="record-save" type="submit" class="map-primary">保存经历</button></div>
+  </form></dialog>
+  <dialog id="detail-dialog" class="map-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><h2 id="detail-title"></h2><button id="detail-close" type="button" class="dialog-close" aria-label="关闭经历详情">×</button></div><p id="detail-meta" class="detail-meta"></p><p id="detail-description" class="detail-description"></p><a id="detail-album" hidden>查看关联相册 →</a><div id="detail-edit-tools" class="dialog-actions" hidden><button id="detail-delete" type="button">删除经历</button><button id="detail-edit" type="button" class="map-primary">编辑经历</button></div></dialog>
+  <dialog id="city-dialog" class="map-dialog" aria-labelledby="city-dialog-title"><div class="dialog-heading"><h2 id="city-dialog-title">地点经历</h2><button id="city-close" type="button" class="dialog-close" aria-label="关闭地点选择">×</button></div><div id="city-options" class="city-options"></div></dialog>
+  <footer class="site-footer container"><p>如有问题和反馈请联系作者公众号 谢雨聊。</p><div><a href="/articles/">文章</a><a href="/projects/">作品</a><a href="/photos/">摄影</a><a href="/map/">足迹</a><a href="/game/">小游戏</a><a href="/about/">关于我</a><a href="/articles/feed.xml">RSS</a></div></footer>
+  <script id="footprints-data" type="application/json">{{map_data}}</script>
+</body>
+</html>

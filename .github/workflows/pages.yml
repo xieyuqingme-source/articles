@@ -41,6 +41,16 @@ jobs:
         run: python -m unittest discover -s scripts -p "test*photos*.py"
       - name: Check photography lightbox interactions
         run: node scripts/test_photos_logic.cjs
+      - name: Check footprints data, map, journey and local exports
+        run: |
+          python scripts/test_map_pages.py
+          node scripts/test_map_logic.cjs
+          node scripts/test_map_journey.cjs
+          node scripts/test_map_view.cjs
+          node scripts/test_map_labels.cjs
+          node scripts/test_map_avatar.cjs
+          node scripts/test_map_playback.cjs
+          node scripts/test_map_video.cjs
       - name: Check unified site rules
         run: python scripts/test_build_site.py
       - name: Check local about routes

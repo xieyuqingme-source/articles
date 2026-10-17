@@ -55,6 +55,7 @@ class GamePublicationTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         shutil.copytree(ROOT / "home", root / "home")
+        shutil.copytree(ROOT / "map", root / "map")
         output = root / "_site_unified"
         fixture = test_build_site.ProjectPublicationTests()
         with patch.object(build_site, "ROOT", root), patch.object(build_site, "OUTPUT", output), \
@@ -66,7 +67,7 @@ class GamePublicationTests(unittest.TestCase):
         origin = "https://preview.example"
         output, report = self.build_fixture(origin)
         self.assertTrue(report["success"])
-        self.assertEqual(report["metadata"]["canonical_pages"], 8)
+        self.assertEqual(report["metadata"]["canonical_pages"], 9)
         sitemap = [node.text for node in ET.parse(output / "sitemap.xml").findall(".//{*}loc")]
         for route in ("game", "game/ranking"):
             with self.subTest(route=route):

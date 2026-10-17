@@ -277,10 +277,11 @@ class Blog:
         for label, target in [("个人主页", "/"), ("文章首页", "index.html"),
                               ('作品 <span lang="en">Projects</span>', "/projects/"),
                               ('摄影 <span lang="en">Photos</span>', "/photos/"),
+                              ('足迹 <span lang="en">Map</span>', "/map/"),
                               ('小游戏 <span lang="en">Games</span>', "/game/"),
                               ("中文文章", "chinese.html"), ("English", "english.html"), ("关于我", "/about/")]:
             current = ' aria-current="page"' if target == active else ""
-            address = target if target in {"/", "/projects/", "/photos/", "/game/", "/about/"} else self.href(target)
+            address = target if target in {"/", "/projects/", "/photos/", "/map/", "/game/", "/about/"} else self.href(target)
             link_language = ' lang="en"' if target == "english.html" else ""
             nav.append(f'<a href="{escape(address)}"{current}{link_language}>{label}</a>')
         return f'''<!doctype html>
@@ -486,7 +487,9 @@ class Blog:
     def build(self, clean=True):
         self.collect()
         # Only remove this generator's own output, after checking its exact path.
-        if self.output.is_symlink() or self.output.resolve() not in {ROOT.resolve() / "_site", ROOT.resolve() / "_site_unified" / "articles"}:
+        if self.output.is_symlink() or self.output.resolve() not in {
+                ROOT.resolve() / "_site", ROOT.resolve() / "_site_unified" / "articles",
+                ROOT.resolve() / "_site_map_preview" / "articles"}:
             raise ValueError("Unsafe generated output path.")
         if self.output.exists():
             if not (self.output / ".generated-by-blog").is_file():
@@ -600,7 +603,7 @@ class Blog:
                     continue
                 # These exact root destinations belong to the unified-site builder.
                 # Do not exempt arbitrary root paths from this article-site check.
-                if parsed.path in {"/", "/projects/", "/photos/", "/game/", "/about/"}:
+                if parsed.path in {"/", "/projects/", "/photos/", "/map/", "/game/", "/about/"}:
                     root_links += 1
                     continue
                 if not parsed.path.startswith(self.base_path):

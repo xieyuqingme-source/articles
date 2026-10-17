@@ -1,0 +1,2 @@
+# Preserve the exact pinned upstream GeoJSON bytes and recorded hash.
+home/assets/map-land.json -text
